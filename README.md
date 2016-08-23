@@ -1,2 +1,2 @@
 # moo
-Educational purpose operating system
+Operating system for education purposes

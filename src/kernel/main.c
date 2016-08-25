@@ -2,6 +2,8 @@
 #include "system.h"
 #include "debug.h"
 #include "string.h"
+#include "interrupts.h"
+#include "mm.h"
 
 extern kernel_load_info_t *kernel_params;
 // set by linker
@@ -16,8 +18,10 @@ void main()
         debug("Kernel BSS doesn't fit allocated space");
         hlt();
     }
-
     memset((void*)bss_start, 0, bss_size);
+
+    init_interrupts();
+    init_memory_manager(kernel_params);
 
     while(true)
     {

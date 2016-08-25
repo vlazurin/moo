@@ -46,6 +46,7 @@ typedef struct memory_map_entry {
 typedef struct kernel_load_info
 {
     uint32_t kernel_size;
+    uint32_t bss_size;
     memory_map_entry_t* memory_map;
     uint8_t memory_map_length;
     uint32_t *page_directory;

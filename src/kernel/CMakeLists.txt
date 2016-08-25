@@ -12,6 +12,10 @@ project(kernel C ASM)
 set(SOURCE_FILES
         head.s
         main.c
+        interrupts.c
+        mm.c
+        liballoc.c
+        mutex.c
         ../shared/sources/system.c
         ../shared/sources/debug.c
         ../shared/sources/string.c

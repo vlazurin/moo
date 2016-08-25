@@ -160,6 +160,7 @@ void main()
     kernel_params.mm_bitmap = (uint8_t*)MM_BITMAP_VIRTUAL;
     kernel_params.memory_map = memory_map;
     kernel_params.memory_map_length = memory_map_length;
+    kernel_params.bss_size = KERNEL_BSS_SIZE;
 
     // enable protected mode
     asm("cli");

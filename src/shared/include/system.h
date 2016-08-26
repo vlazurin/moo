@@ -43,6 +43,13 @@ typedef struct memory_map_entry {
     uint32_t ACPI;
 } __attribute__((packed)) memory_map_entry_t;
 
+typedef struct video_settings
+{
+    uint32_t *framebuffer;
+    uint32_t width;
+    uint32_t height;
+} video_settings_t;
+
 typedef struct kernel_load_info
 {
     uint32_t kernel_size;
@@ -51,6 +58,7 @@ typedef struct kernel_load_info
     uint8_t memory_map_length;
     uint32_t *page_directory;
     uint8_t *mm_bitmap;
+    video_settings_t video_settings;
 } kernel_load_info_t;
 
 #endif

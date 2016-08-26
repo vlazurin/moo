@@ -37,8 +37,8 @@ kernel_load_info_t kernel_params;
 uint32_t *page_directory = 0;
 
 // linker will set values(see os_loader.ld)
-const uint32_t bss_start;
-const uint32_t bss_end;
+uint32_t *bss_start;
+uint32_t *bss_end;
 
 void fill_paging_info(uint32_t virtual, uint32_t physical, uint32_t pages_count)
 {
@@ -74,7 +74,7 @@ void add_to_memory_map(uint32_t base, uint32_t length, uint8_t type)
 void main()
 {
     // zero all global vars with 0 value
-    memset((void*)bss_start, 0, bss_end - bss_start);
+    memset(&bss_end, 0, &bss_end - &bss_start);
 
     memory_map_length = detect_upper_memory(memory_map);
     // first 1mb of memory
@@ -161,7 +161,8 @@ void main()
     kernel_params.memory_map = memory_map;
     kernel_params.memory_map_length = memory_map_length;
     kernel_params.bss_size = KERNEL_BSS_SIZE;
-
+    set_video_mode(&kernel_params.video_settings);
+    
     // enable protected mode
     asm("cli");
     asm("movl %cr0, %eax");

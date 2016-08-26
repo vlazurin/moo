@@ -49,42 +49,29 @@ uint8_t detect_upper_memory(memory_map_entry_t* memory_map)
     uint8_t cl = 0;
     uint8_t counter = 0;
 
-    uint16_t offset = 0;
-    uint16_t segment = 0;
-
     do
     {
         // failsafe for case when BIOS returned 20 bytes only
         memory_map->ACPI = 0;
 
-        if ((uintptr_t)memory_map >= 0x10000)
-        {
-            segment = (uintptr_t)memory_map / 0x10000 * 0x1000;
-            offset = (uintptr_t)memory_map % 0x10000;
-        }
-        else
-        {
-            offset = (uintptr_t)memory_map;
-        }
+        uint16_t offset = OFFSET((uintptr_t)memory_map);
+        uint16_t segment = SEG((uintptr_t)memory_map);
 
-        asm("pusha");
-        asm("movw %es, %ax");
-        asm("push %ax");
+        save_regs();
         asm("movw %0, %%di" :: "r"(offset));
         asm("movw %0, %%es" :: "r"(segment));
         asm("movl %0, %%ebx" :: "r"(ebx));
 
+        // extended asm instructions must be first, they will use general purpose regs
         // magic number
         asm("mov $0x534D4150, %edx");
         asm("mov $0xE820, %eax");
         asm("mov $0x18, %ecx");
         asm("int $0x15");
 
-        asm ("movl %%ebx, %0" : "=r"(ebx));
-        asm ("movb %%cl, %0" : "=r"(cl));
-        asm("pop %ax");
-        asm("mov %ax, %es");
-        asm("popa");
+        asm("movl %%ebx, %0" : "=r"(ebx));
+        asm("movb %%cl, %0" : "=r"(cl));
+        restore_regs();
 
         // soft limit
         if (counter == 100)
@@ -97,4 +84,82 @@ uint8_t detect_upper_memory(memory_map_entry_t* memory_map)
     } while(ebx > 0);
 
     return counter;
+}
+
+void set_video_mode(video_settings_t *video_settings)
+{
+    // bad idea to store vbe_info struct in stack because of struct size
+    vbe_info_t info;
+    memcpy(&info.signature, "VBE2", 4);
+
+    uint16_t offset = OFFSET((uintptr_t)&info);
+    uint16_t segment = SEG((uintptr_t)&info);
+    uint16_t ax = 0;
+
+    save_regs();
+    // extended asm instructions must be first, they will use general purpose regs
+    asm("movw %0, %%di" :: "r"(offset));
+    asm("movw %0, %%es" :: "r"(segment));
+    asm("mov $0x4F00, %ax");
+    asm("int $0x10");
+    asm("movw %%ax, %0" : "=r"(ax));
+
+    restore_regs();
+
+    if (ax != 0x004F)
+    {
+        print("Video card doen't support VESA");
+        hlt();
+    }
+
+    uint16_t *modes = (uint16_t*)info.video_modes;
+    vbe_mode_info_t mode_info;
+    segment = SEG((uintptr_t)&mode_info);
+    offset = OFFSET((uintptr_t)&mode_info);
+    while (*modes != 0xFFFF)
+    {
+        save_regs();
+        // extended asm instructions must be first, they will use general purpose regs
+        asm("movw %0, %%di" :: "r"(offset));
+        asm("movw %0, %%es" :: "r"(segment));
+        asm("movw %0, %%cx" :: "r"(*modes));
+        asm("mov $0x4F01, %ax");
+        asm("int $0x10");
+        asm("movw %%ax, %0" : "=r"(ax));
+        restore_regs();
+
+        if (ax != 0x004F)
+        {
+            print("Can't get VESA video mode info");
+            hlt();
+        }
+        if (mode_info.bpp == 32 && mode_info.attributes & (1 << 7) && mode_info.width == 640 && mode_info.height == 480)
+        {
+            uint16_t mode = *modes;
+            mode |= (1 << 14); // enable LFB
+            mode |= (0 << 15); // clear screen
+            save_regs();
+            // extended asm instructions must be first, they will use general purpose regs
+            asm("movw %0, %%bx" :: "r"(*modes));
+            asm("mov $0x4F02, %ax");
+            asm("int $0x10");
+            asm("movw %%ax, %0" : "=r"(ax));
+            restore_regs();
+
+            if (ax != 0x004F)
+            {
+                print("Can't set VESA video mode");
+                hlt();
+            }
+
+            video_settings->framebuffer = (uint32_t*)mode_info.framebuffer;
+            video_settings->width = mode_info.width;
+            video_settings->height = mode_info.height;
+            return;
+        }
+
+        modes++;
+    }
+
+    return;
 }

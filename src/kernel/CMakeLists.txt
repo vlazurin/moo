@@ -16,6 +16,8 @@ set(SOURCE_FILES
         mm.c
         liballoc.c
         mutex.c
+        stb_truetype.c
+        pit.c
         ../shared/sources/system.c
         ../shared/sources/debug.c
         ../shared/sources/string.c

@@ -6,6 +6,7 @@
 #define IN_KB(value) (value) / 1024
 #define IN_MB(value) (value) / 1024 / 1024
 
+void init_debug_serial();
 void debug(const char *format, ...);
 void breakpoint();
 

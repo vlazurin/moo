@@ -2,7 +2,7 @@
 #define H_INTERRUPTS
 
 #include <stdint.h>
-//#include "multitasking.h"
+#include "tasking.h"
 
 #define INTERRUPT_HANDLE_ERROR_CODE 1
 #define INTERRUPT_IGNORE_ERROR_CODE 0
@@ -24,8 +24,9 @@ typedef struct idt
 
 void set_interrupt_gate(uint8_t number, void *handler, uint16_t selector, uint8_t flags);
 void init_interrupts();
-void disable_interrupts();
-void enable_interrupts();
+
+#define cli() __asm__ __volatile__("cli")
+#define sti() __asm__ __volatile__("sti")
 
 /*
  * cld - C code following the sysV ABI requires DF to be clear on function entry
@@ -53,12 +54,12 @@ void enable_interrupts();
 		"cld \n"						\
 		"call __irq_" #name "\n"		\
         "cld \n"						\
-		"call send_eoi \n"				\
+        "call send_eoi \n"				\
         "sti \n"						\
         "cld \n"						\
-        "#call switch_task \n"				\
+        "call force_task_switch \n"				\
         "popf \n"						\
-		"popal \n"						\
+        "popal \n"						\
         "iretl");            			\
 		extern void name();        		\
 		void __irq_##name()

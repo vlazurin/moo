@@ -46,6 +46,8 @@ void init_debug_serial()
 
 void print_char(const char c)
 {
+	outb(0x0e9, c);
+	while ((inb(0x3F8 + 5) & 0x20) == 0);
 	outb(0x3F8, c);
 }
 

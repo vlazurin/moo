@@ -108,16 +108,6 @@ void set_interrupt_gate(uint8_t number, void *handler, uint16_t selector, uint8_
     idt[number].flags = flags;
 }
 
-void disable_interrupts()
-{
-    __asm__ __volatile__("cli");
-}
-
-void enable_interrupts()
-{
-    __asm__ __volatile__("sti");
-}
-
 void irq_remap()
 {
     outb(0x20, 0x11);
@@ -162,5 +152,5 @@ void init_interrupts()
     set_interrupt_gate(80, default_irq_handler, 0x08, 0x8E);
 
     asm("lidt idt_descriptor");
-    enable_interrupts();
+    sti();
 }

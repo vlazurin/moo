@@ -18,6 +18,8 @@ set(SOURCE_FILES
         mutex.c
         stb_truetype.c
         pit.c
+        tasking.c
+        process.s
         ../shared/sources/system.c
         ../shared/sources/debug.c
         ../shared/sources/string.c

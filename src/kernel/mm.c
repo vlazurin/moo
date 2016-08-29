@@ -101,9 +101,9 @@ void init_memory_manager(kernel_load_info_t *kernel_params)
 		}
 	}
 
-    disable_interrupts();
+    cli();
     set_interrupt_gate(0x0E, page_fault_handler, 0x08, 0x8E);
-    enable_interrupts();
+    sti();
 }
 
 uint32_t alloc_physical_page()

@@ -5,6 +5,7 @@
 #include "interrupts.h"
 #include "mm.h"
 #include "pit.h"
+#include "tasking.h"
 
 extern kernel_load_info_t *kernel_params;
 // set by linker
@@ -26,6 +27,7 @@ void main()
     init_interrupts();
     init_memory_manager(kernel_params);
     init_pit();
+    init_tasking();
 
     debug("end of kernel main\n");
     while(true)

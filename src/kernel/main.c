@@ -6,6 +6,7 @@
 #include "mm.h"
 #include "pit.h"
 #include "tasking.h"
+#include "timer.h"
 
 extern kernel_load_info_t *kernel_params;
 // set by linker
@@ -28,6 +29,7 @@ void main()
     init_memory_manager(kernel_params);
     init_pit();
     init_tasking();
+    init_timer();
 
     debug("end of kernel main\n");
     while(true)

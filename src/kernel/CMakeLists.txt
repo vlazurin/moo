@@ -20,6 +20,8 @@ set(SOURCE_FILES
         pit.c
         tasking.c
         process.s
+        timer.c
+        ./support/list.c
         ../shared/sources/system.c
         ../shared/sources/debug.c
         ../shared/sources/string.c

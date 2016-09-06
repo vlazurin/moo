@@ -5,6 +5,7 @@
 #include "interrupts.h"
 #include "mm.h"
 #include "pit.h"
+#include "pci.h"
 #include "tasking.h"
 #include "timer.h"
 
@@ -30,6 +31,7 @@ void main()
     init_pit();
     init_tasking();
     init_timer();
+    init_pci_devices();
 
     debug("end of kernel main\n");
     while(true)

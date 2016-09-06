@@ -22,6 +22,10 @@ set(SOURCE_FILES
         process.s
         timer.c
         ./support/list.c
+        pci.c
+        ./network/network.c
+        ./drivers/video/vesa/vesa_lfb.c
+        ./drivers/network/e1000/e1000.c
         ../shared/sources/system.c
         ../shared/sources/debug.c
         ../shared/sources/string.c

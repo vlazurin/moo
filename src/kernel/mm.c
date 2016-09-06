@@ -5,16 +5,21 @@
 #include "string.h"
 #include "system.h"
 
-#define HEAD_ADDRESS 0xF8C00000
+#define HEAP_ADDRESS 0xF8C00000
+#define HARDWARE_SPACE_ADDRESS 0xF2800000
 
 uint8_t *bitmap;
 uint32_t *page_directory;
-uint8_t *heap = (uint8_t*)HEAD_ADDRESS;
+uint8_t *heap = (uint8_t*)HEAP_ADDRESS;
+uint8_t *hardware_space = (uint8_t*)HARDWARE_SPACE_ADDRESS;
 mutex_t liballoc_mutex = 0;
 mutex_t mm_mutex = 0;
 
-// heap 100mb
+// 100mb
 #define HEAP_SIZE 104857600
+
+// 100mb
+#define HARDWARE_SPACE_SIZE 104857600
 
 int liballoc_lock()
 {
@@ -37,7 +42,7 @@ int liballoc_free(void* ptr, int pages)
 void *liballoc_alloc(int pages)
 {
     uint8_t *current = heap;
-    if ((uint32_t)(heap + pages * 0x1000 - HEAD_ADDRESS) >= HEAP_SIZE)
+    if ((uint32_t)(heap + pages * 0x1000 - HEAP_ADDRESS) >= HEAP_SIZE)
 	{
 		debug("kernel heap has no free space\n");
 		hlt();
@@ -53,6 +58,20 @@ void *liballoc_alloc(int pages)
 	}
 
 	return current;
+}
+
+uint32_t alloc_hardware_space_chunk(int pages)
+{
+    uint32_t addr = (uint32_t)hardware_space;
+    if ((uint32_t)(hardware_space + pages * 0x1000 - HARDWARE_SPACE_ADDRESS) >= HARDWARE_SPACE_SIZE)
+	{
+		debug("kernel hardware space has no free space\n");
+		hlt();
+        //return 0;
+    }
+
+    hardware_space += pages * 0x1000;
+	return addr;
 }
 
 extern uint32_t page_fault_handler_error_code; // tmp solution, IRQ_HANDLER macro sets value for us

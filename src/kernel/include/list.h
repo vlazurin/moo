@@ -1,26 +1,22 @@
 #ifndef H_LIST
 #define H_LIST
 
-#include <stdint.h>
-#include "mutex.h"
+typedef struct list_node list_node_t;
 
 typedef struct list_node
 {
-    struct list_node *next;
-    struct list_node *prev;
-    void *data;
+    list_node_t *next;
+    list_node_t *prev;
 } list_node_t;
 
-typedef struct list
-{
-    list_node_t *root;
-    mutex_t mutex;
-    void (*add)(struct list*, void*);
-    void (*delete)(struct list*, void*);
-    void (*delete_node)(struct list*, list_node_t*);
-    void (*free)(struct list*);
-} list_t;
+void delete_from_list(void *list, void* node);
 
-list_t* create_list();
+#define add_to_list(list, node) \
+if (list != 0) \
+{ \
+    ((list_node_t*)node)->next = (list_node_t*)list; \
+    ((list_node_t*)list)->prev = (list_node_t*)node; \
+} \
+list = node;
 
 #endif

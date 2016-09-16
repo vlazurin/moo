@@ -41,18 +41,18 @@ void init_interrupts();
         ".long 0\n"                     \
         #name "_handle_error_code:\n"   \
         ".byte 1\n"                     \
-		".text\n"						\
-		#name ":\n"              	  	\
+        ".text\n"						\
+        #name ":\n"              	  	\
         "cmpb $" #handle_error_code "," #name "_handle_error_code\n" \
         "jne " #name "_common\n"         \
         "xchg %eax, (%esp) \n" 					\
         "mov %eax," #name "_error_code\n" 				\
         "pop %eax \n"             \
         #name "_common:\n"              \
-		"pushal \n" 					\
+        "pushal \n" 					\
         "pushf \n" 					\
-		"cld \n"						\
-		"call __irq_" #name "\n"		\
+        "cld \n"						\
+        "call __irq_" #name "\n"		\
         "cld \n"						\
         "call send_eoi \n"				\
         "sti \n"						\
@@ -61,6 +61,6 @@ void init_interrupts();
         "popf \n"						\
         "popal \n"						\
         "iretl");            			\
-		extern void name();        		\
-		void __irq_##name()
+        extern void name();        		\
+        void __irq_##name()
 #endif

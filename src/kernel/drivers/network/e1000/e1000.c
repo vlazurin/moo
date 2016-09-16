@@ -113,7 +113,7 @@ void rx_thread(e1000_device_t *dev)
         }
         else if (dev->rx_base[dev->rx_tail].errors)
         {
-            debug("e1000: packet errors code is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].errors);
+            debug("e1000: packet error code is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].errors);
             drop = 1;
         }
 
@@ -140,10 +140,10 @@ void e1000_setup_tx(e1000_device_t *dev)
     dev->tx_base = (void*)virtual_addr;
     memset(dev->tx_base, 0, sizeof(e1000_tx_descriptor_t) * TX_DESCRIPTORS_COUNT);
     debug("virtual: %h, physical: %h, pages count: %i\n", virtual_addr, physical_addr, desc_pages);
-    
+
     dev->tx_data_buffer = kmalloc(DESCRIPTOR_BUFFER_SIZE * TX_DESCRIPTORS_COUNT);
     memset(dev->tx_data_buffer, 0, DESCRIPTOR_BUFFER_SIZE * TX_DESCRIPTORS_COUNT);
-    
+
     for (uint16_t i = 0; i < TX_DESCRIPTORS_COUNT; i++)
     {
         e1000_tx_descriptor_t *current = &(dev->tx_base[i]);
@@ -199,10 +199,10 @@ void e1000_setup_rx(e1000_device_t *dev)
     dev->rx_base = (void*)virtual_addr;
     memset(dev->rx_base, 0, sizeof(e1000_rx_descriptor_t) * RX_DESCRIPTORS_COUNT);
     debug("virtual: %h, physical: %h, pages count: %i\n", virtual_addr, physical_addr, desc_pages);
-    
+
     dev->rx_data_buffer = kmalloc(DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT);
     memset(dev->rx_data_buffer, 0, DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT);
-    
+
     for (uint16_t i = 0; i < RX_DESCRIPTORS_COUNT; i++)
     {
         e1000_rx_descriptor_t *current = &(dev->rx_base[i]);

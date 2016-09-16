@@ -3,3 +3,4 @@ build/
 Makefile
 disk_image
 sdb.vdi
+debug.txt

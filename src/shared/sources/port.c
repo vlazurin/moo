@@ -12,9 +12,9 @@ void outl(uint16_t port_id, uint32_t value)
 
 uint32_t inl(uint16_t port_id)
 {
-	uint32_t ret;
-	asm volatile("inl %%dx, %%eax":"=a"(ret):"d"(port_id));
-	return ret;
+    uint32_t ret;
+    asm volatile("inl %%dx, %%eax":"=a"(ret):"d"(port_id));
+    return ret;
 }
 
 uint16_t inw(uint16_t port_id)

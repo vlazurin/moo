@@ -22,19 +22,14 @@ Code & data layout:
 0x40000 - 0x????? buffer for lba read
 */
 
-#define PAGE_DIRECTORY_TOTAL_SIZE 0x1000000
-#define PAGE_DIRECTORY_VIRTUAL 0xFA000000
-#define MM_BITMAP_VIRTUAL 0xFEFDF000
-#define MM_BITMAP_SIZE 0x20000
 #define LOAD_BUFFER 0x40000
-#define KERNEL_BSS_SIZE 0x4000
 #define MEMORY_MAP_MAX_ADDRESS 0x40000
 
 memory_map_entry_t* memory_map = (memory_map_entry_t*)0x38000;
 uint8_t memory_map_length = 0;
 kernel_load_info_t kernel_params;
 
-uint32_t *page_directory = 0;
+page_directory_t *page_directory = 0;
 
 // linker will set values(see os_loader.ld)
 uint32_t *bss_start;
@@ -43,12 +38,13 @@ uint32_t *bss_end;
 void fill_paging_info(uint32_t virtual, uint32_t physical, uint32_t pages_count)
 {
     virtual = virtual & 0xFFFFF000;
-
+    debug("[loader] mapping %h - %h to physical %h - %h\n",
+        virtual, virtual + pages_count * 0x1000 - 1, physical, physical + pages_count * 0x1000 - 1);
     for(uint32_t i = 0; i < pages_count; i++)
     {
         uint32_t dir = (virtual >> 22);
         uint32_t page = (virtual >> 12) & 0x03FF;
-        uint32_t *pages = (uint32_t*)(page_directory[dir] & ~3);
+        uint32_t *pages = (uint32_t*)(page_directory->directory[dir] & ~3);
         pages[page] = physical | 3;
         virtual += 0x1000;
         physical += 0x1000;
@@ -75,7 +71,7 @@ void main()
 {
     // zero all global vars with 0 value
     memset(&bss_end, 0, &bss_end - &bss_start);
-
+    debug("[loader] bss size is %h\n", &bss_end - &bss_start);
     memory_map_length = detect_upper_memory(memory_map);
     // first 1mb of memory
     add_to_memory_map(0x0, 0x100000, MEMORY_MAP_REGION_RESERVED);
@@ -85,6 +81,7 @@ void main()
     fat_entry_t* kernel = get_fat_entry("KERNEL", "");
     if (kernel == 0)
     {
+        debug("[loader] kernel isn't found\n");
         print("Kernel isn't found");
         hlt();
     }
@@ -93,7 +90,9 @@ void main()
     void *load_addr = 0;
     uint8_t *kernel_entry_point = 0;
     uint32_t kernel_size = PAGE_ALIGN(kernel->file_size + KERNEL_BSS_SIZE);
-    uint32_t required_memory = kernel_size + PAGE_DIRECTORY_TOTAL_SIZE + MM_BITMAP_SIZE;
+    debug("[loader] kernel size is %h + %h bss\n", kernel->file_size, KERNEL_BSS_SIZE);
+    uint32_t required_memory = kernel_size + PAGE_DIRECTORY_TOTAL_SIZE + MM_BITMAP_SIZE + KERNEL_STACK_SIZE;
+    debug("[loader] total required memory: %h\n", required_memory);
 
     for(uint8_t i = 0; i < memory_map_length; i++)
     {
@@ -108,6 +107,7 @@ void main()
         if (memory_map[i].type == MEMORY_MAP_REGION_FREE && required_memory <= free_memory)
         {
             load_addr = (void*)PAGE_ALIGN(memory_map[i].base_low);
+            debug("[loader] loading data at %h\n", load_addr);
             kernel_entry_point = load_addr;
             void *buffer = (void*)LOAD_BUFFER;
             uint16_t cluster = kernel->start_cluster;
@@ -122,28 +122,34 @@ void main()
     }
 
     if (load_addr == 0) {
+        debug("[loader] not enough free memory\n");
         print("Not enough free memory");
         hlt();
     }
 
     load_addr = (void*)PAGE_ALIGN((uintptr_t)load_addr + KERNEL_BSS_SIZE);
-    page_directory = (uint32_t*)load_addr;
+
+    page_directory = (page_directory_t*)load_addr;
+    debug("[loader] page directory location is %h\n", load_addr);
     uint32_t *page_table = 0;
+
     for(uint16_t i = 0; i < 1024; i++)
     {
-        page_table = page_directory + 0x400 + 0x400 * i;
-        page_directory[i] = (uint32_t)page_table | 3;
+        page_table = (void*)page_directory + PAGE_ALIGN(sizeof(page_directory_t)) + 0x1000 * i;
+        page_directory->directory[i] = (uint32_t)page_table | 3;
         for(uint16_t y = 0; y < 1024; y++)
         {
             page_table[y] = 0 | 2;
         }
+        page_directory->pages[i] = (void*)PAGE_DIRECTORY_VIRTUAL + PAGE_ALIGN(sizeof(page_directory_t)) + 0x1000 * i;
     };
 
     // map the first 1MB of memory
     fill_paging_info(0, 0, 256);
     fill_paging_info(0xE1C00000, (uint32_t)kernel_entry_point, kernel_size / 0x1000);
-    fill_paging_info(PAGE_DIRECTORY_VIRTUAL, (uint32_t)page_directory, PAGE_ALIGN(PAGE_DIRECTORY_TOTAL_SIZE) / 0x1000);
-    fill_paging_info(MM_BITMAP_VIRTUAL, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE, PAGE_ALIGN(MM_BITMAP_SIZE) / 0x1000);
+    fill_paging_info(PAGE_DIRECTORY_VIRTUAL, (uint32_t)page_directory, PAGE_DIRECTORY_TOTAL_SIZE / 0x1000);
+    fill_paging_info(MM_BITMAP_VIRTUAL, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE, MM_BITMAP_SIZE / 0x1000);
+    fill_paging_info(KERNEL_STACK, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE + MM_BITMAP_SIZE, KERNEL_STACK_SIZE / 0x1000);
 
     add_to_memory_map((uint32_t)kernel_entry_point, required_memory, MEMORY_MAP_REGION_RESERVED);
 
@@ -155,14 +161,10 @@ void main()
     gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
     set_gdt();
 
-    kernel_params.kernel_size = kernel->file_size;
-    kernel_params.page_directory = (uint32_t*)PAGE_DIRECTORY_VIRTUAL;
-    kernel_params.mm_bitmap = (uint8_t*)MM_BITMAP_VIRTUAL;
     kernel_params.memory_map = memory_map;
     kernel_params.memory_map_length = memory_map_length;
-    kernel_params.bss_size = KERNEL_BSS_SIZE;
     set_video_mode(&kernel_params.video_settings);
-    
+
     // enable protected mode
     asm("cli");
     asm("movl %cr0, %eax");
@@ -187,7 +189,8 @@ void main()
     asm("mov %cr0, %eax");
     asm("or $0x80000000, %eax");
     asm("mov %eax, %cr0");
-
+    asm("movl %0, %%eax" :: "r"(KERNEL_STACK + KERNEL_STACK_SIZE) : "%eax");
+    asm("mov %eax, %esp");
     asm("movl %0, %%ebx" :: "r"(&kernel_params) : "%ebx");
     asm("ljmp $0x08, $0xE1C00000");
 }

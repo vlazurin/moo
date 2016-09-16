@@ -3,75 +3,67 @@
 #include "interrupts.h"
 #include "mutex.h"
 #include "string.h"
+#include "liballoc.h"
 #include "system.h"
 
-#define HEAP_ADDRESS 0xF8C00000
-#define HARDWARE_SPACE_ADDRESS 0xF2800000
-
-uint8_t *bitmap;
-uint32_t *page_directory;
-uint8_t *heap = (uint8_t*)HEAP_ADDRESS;
-uint8_t *hardware_space = (uint8_t*)HARDWARE_SPACE_ADDRESS;
+uint8_t *bitmap = (uint8_t*) MM_BITMAP_VIRTUAL;
+page_directory_t * volatile page_directory = (page_directory_t*)PAGE_DIRECTORY_VIRTUAL;
+uint8_t *heap = (uint8_t*)KERNEL_HEAP;
+uint8_t *hardware_space = (uint8_t*)HARDWARE_SPACE;
 mutex_t liballoc_mutex = 0;
 mutex_t mm_mutex = 0;
 
-// 100mb
-#define HEAP_SIZE 104857600
-
-// 100mb
-#define HARDWARE_SPACE_SIZE 104857600
-
 int liballoc_lock()
 {
-	mutex_lock(&liballoc_mutex);
-	return 0;
+    mutex_lock(&liballoc_mutex);
+    return 0;
 }
 
 int liballoc_unlock()
 {
-	mutex_release(&liballoc_mutex);
-	return 0;
+    mutex_release(&liballoc_mutex);
+    return 0;
 }
 
 // TODO: should respect memory map... reject attempts to free reserved areas
-int liballoc_free(void* ptr, int pages)
+int liballoc_free(void* ptr, size_t pages)
 {
     return 0;
 }
 
-void *liballoc_alloc(int pages)
+void *liballoc_alloc(size_t pages)
 {
     uint8_t *current = heap;
-    if ((uint32_t)(heap + pages * 0x1000 - HEAP_ADDRESS) >= HEAP_SIZE)
-	{
-		debug("kernel heap has no free space\n");
-		hlt();
+    if ((uint32_t)(heap + pages * 0x1000 - KERNEL_HEAP) >= KERNEL_HEAP_SIZE)
+    {
+        debug("kernel heap has no free space\n");
+        hlt();
         //return 0;
     }
 
     heap += pages * 0x1000;
 
-	for(uint32_t i = 0; i < pages; i++)
-	{
-		uint32_t addr = alloc_physical_page();
-		map_virtual_to_physical((uint32_t)current + i * 0x1000, addr);
-	}
+    for(uint32_t i = 0; i < pages; i++)
+    {
+        uint32_t addr = alloc_physical_page();
+        map_virtual_to_physical((uint32_t)current + i * 0x1000, addr);
+    }
 
-	return current;
+    return current;
 }
 
 uint32_t alloc_hardware_space_chunk(int pages)
 {
     uint32_t addr = (uint32_t)hardware_space;
-    if ((uint32_t)(hardware_space + pages * 0x1000 - HARDWARE_SPACE_ADDRESS) >= HARDWARE_SPACE_SIZE)
-	{
-		debug("kernel hardware space has no free space\n");
-		hlt();
+    if ((uint32_t)(hardware_space + pages * 0x1000 - HARDWARE_SPACE) >= HARDWARE_SPACE_SIZE)
+    {
+        debug("kernel hardware space has no free space\n");
+        hlt();
         //return 0;
     }
 
     hardware_space += pages * 0x1000;
-	return addr;
+    return addr;
 }
 
 extern uint32_t page_fault_handler_error_code; // tmp solution, IRQ_HANDLER macro sets value for us
@@ -81,7 +73,8 @@ IRQ_HANDLER(page_fault_handler, 1)
     asm("movl %%cr2, %0" : "=r"(virt));
 
     debug("Page Fault at addr: %h, error code: %h\n", virt, page_fault_handler_error_code);
-    if (!(page_fault_handler_error_code & 1)) // page not set
+    hlt();
+    /*if (!(page_fault_handler_error_code & 1)) // page not set
     {
         uint32_t phys = alloc_physical_page();
         map_virtual_to_physical(virt, phys);
@@ -91,34 +84,33 @@ IRQ_HANDLER(page_fault_handler, 1)
     {
         debug("Page fault handler isn't finished...\n");
         hlt();
-    }
+    }*/
 }
 
 void mark_memory_region(uint32_t address, uint32_t size, uint8_t used)
 {
-    uint32_t start_page = address / 0x1000;
-    uint32_t end_page = (address + size) / 0x1000;
-	mutex_lock(&mm_mutex);
-    for(uint32_t page = start_page; page < end_page; page++)
+    uint32_t page = address / 0x1000;
+    uint32_t count = size / 0x1000;
+    debug("[memory manager] mark region: address %h, start page %i, count %i, used flag %i\n", address, page, count, used);
+    mutex_lock(&mm_mutex);
+    for(uint32_t i = 0; i < count; i++)
     {
-        bitmap[page / 8] |= 1 << (page % 8);
+        bitmap[(page + i) / 8] |= ((used & 1) << ((page + i) % 8));
     }
-	mutex_release(&mm_mutex);
+    mutex_release(&mm_mutex);
 }
 
 void init_memory_manager(kernel_load_info_t *kernel_params)
 {
-    bitmap = kernel_params->mm_bitmap;
-    page_directory = kernel_params->page_directory;
     memset(bitmap, 0, MM_BITMAP_SIZE);
 
-	for(uint8_t i = 0; i < kernel_params->memory_map_length; i++)
-	{
-		if (kernel_params->memory_map[i].type != MEMORY_MAP_REGION_FREE)
-		{
-			mark_memory_region(kernel_params->memory_map[i].base_low, kernel_params->memory_map[i].length_low, 1);
-		}
-	}
+    for(uint8_t i = 0; i < kernel_params->memory_map_length; i++)
+    {
+        if (kernel_params->memory_map[i].type != MEMORY_MAP_REGION_FREE)
+        {
+            mark_memory_region(kernel_params->memory_map[i].base_low, kernel_params->memory_map[i].length_low, 1);
+        }
+    }
 
     cli();
     set_interrupt_gate(0x0E, page_fault_handler, 0x08, 0x8E);
@@ -127,7 +119,7 @@ void init_memory_manager(kernel_load_info_t *kernel_params)
 
 uint32_t alloc_physical_page()
 {
-	mutex_lock(&mm_mutex);
+    mutex_lock(&mm_mutex);
     for(uint32_t i = 0; i < MM_BITMAP_SIZE; i++)
     {
         if (bitmap[i] == 0xFF)
@@ -140,30 +132,30 @@ uint32_t alloc_physical_page()
             if (!(bitmap[i] & (1 << x)))
             {
                 bitmap[i] |= 1 << x;
-				mutex_release(&mm_mutex);
+                mutex_release(&mm_mutex);
                 return ((i * 8 + x) * 0x1000);
             }
         }
     }
 
     debug("No free physical memory");
-	// Actually swapping must be done here...
+    // Actually swapping must be done here...
     hlt();
-	mutex_release(&mm_mutex);
-	return 0;
+    mutex_release(&mm_mutex);
+    return 0;
 }
 
 uint32_t alloc_physical_range(uint16_t count)
 {
-	if (count == 0)
-	{
-		return 0;
-	}
+    if (count == 0)
+    {
+        return 0;
+    }
 
-	uint16_t found = 0;
-	uint32_t ci = 0;
-	uint32_t cx = 0;
-	mutex_lock(&mm_mutex);
+    uint16_t found = 0;
+    uint32_t ci = 0;
+    uint32_t cx = 0;
+    mutex_lock(&mm_mutex);
     for(uint32_t i = 0; i < MM_BITMAP_SIZE; i++)
     {
         if (bitmap[i] == 0xFF)
@@ -176,38 +168,38 @@ uint32_t alloc_physical_range(uint16_t count)
             if (!(bitmap[i] & (1 << x)))
             {
                 if (found == 0)
-				{
-					ci = i;
-					cx = x;
-				}
-				found++;
-				if (found == count)
-				{
-					for(uint32_t ai = ci; ai < count; ai++)
-				    {
-				        for(uint8_t ax = cx; ax < 8; ax++)
-				        {
-							bitmap[ai] |= 1 << ax;
-						}
-					}
-					mutex_release(&mm_mutex);
-					return ((ci * 8 + cx) * 0x1000);
-				}
+                {
+                    ci = i;
+                    cx = x;
+                }
+                found++;
+                if (found == count)
+                {
+                    for(uint32_t ai = ci; ai < count; ai++)
+                    {
+                        for(uint8_t ax = cx; ax < 8; ax++)
+                        {
+                            bitmap[ai] |= 1 << ax;
+                        }
+                    }
+                    mutex_release(&mm_mutex);
+                    return ((ci * 8 + cx) * 0x1000);
+                }
             }
-			else
-			{
-				found = 0;
-			}
+            else
+            {
+                found = 0;
+            }
         }
     }
 
-	mutex_release(&mm_mutex);
-	if (found < count)
-	{
-	    debug("No free physical memory");
-	    hlt();
-	}
-	return 0;
+    mutex_release(&mm_mutex);
+    if (found < count)
+    {
+        debug("No free physical memory");
+        hlt();
+    }
+    return 0;
 }
 
 
@@ -215,29 +207,40 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
 {
     uint32_t dir = (virtual >> 22);
     uint32_t page = (virtual >> 12) & 0x03FF;
-    uint32_t *page_table = page_directory + 0x400 * dir + 0x400;
-    page_table[page] = physical | 3;
+
+    if ((page_directory->directory[dir] & 1) == 0)
+    {
+        page_directory->pages[dir] = kmalloc(0x1000 + 0x1000);
+        page_directory->pages[dir] = (uint32_t*)PAGE_ALIGN((uint32_t)page_directory->pages[dir]);
+        for(uint32_t i = 0; i < 1024; i++)
+        {
+            page_directory->pages[dir][i] = 2;
+        }
+
+        page_directory->directory[dir] = get_physical_address((uint32_t)page_directory->pages[dir]) | 3;
+    }
+
+    page_directory->pages[dir][page] = physical | 3;
     asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
 }
 
 void map_virtual_to_physical_range(uint32_t virtual, uint32_t physical, uint16_t count)
 {
     for(uint16_t i = 0; i < count; i++)
-	{
-		map_virtual_to_physical(virtual + i * 0x1000, physical + i * 0x1000);
-	}
+    {
+        map_virtual_to_physical(virtual + i * 0x1000, physical + i * 0x1000);
+    }
 }
 
 uint32_t get_physical_address(uint32_t virtual)
 {
-	uint32_t dir = (virtual >> 22);
+    uint32_t dir = (virtual >> 22);
     uint32_t page = (virtual >> 12) & 0x03FF;
-    uint32_t *page_table = page_directory + 0x400 * dir + 0x400;
-	// Should be mutex lock before IF? Probably value in page_table can be changed between IF and calc...
-	if ((page_table[page] & 3) == 3)
-	{
-		return (page_table[page] & 0xFFFFF000) + (virtual & 0xFFF);
-	}
+    // Should be mutex lock before IF? Probably value in page_table can be changed between IF and calc...
+    if (page_directory->pages[dir] != 0 && (page_directory->pages[dir][page] & 3) == 3)
+    {
+        return (page_directory->pages[dir][page] & 0xFFFFF000) + (virtual & 0xFFF);
+    }
 
-	return 0;
+    return 0;
 }

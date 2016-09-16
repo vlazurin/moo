@@ -51,14 +51,38 @@ typedef struct video_settings
     uint32_t height;
 } video_settings_t;
 
+typedef struct page_directory
+{
+    // must be page aligned
+    uint32_t directory[1024];
+    uint32_t *pages[1024];
+} page_directory_t;
+
+#define PAGE_DIRECTORY_TOTAL_SIZE (PAGE_ALIGN(sizeof(page_directory_t)) + 0x400000)
+#define PAGE_DIRECTORY_VIRTUAL (0x100000000 - PAGE_DIRECTORY_TOTAL_SIZE)
+
+#define MM_BITMAP_SIZE 0x20000
+// -0x1000 for unmapped page (overflow guard)
+#define MM_BITMAP_VIRTUAL (PAGE_DIRECTORY_VIRTUAL - MM_BITMAP_SIZE - 0x1000)
+
+#define KERNEL_STACK_SIZE 0x2000
+// -0x1000 for unmapped page (overflow guard)
+#define KERNEL_STACK (MM_BITMAP_VIRTUAL - KERNEL_STACK_SIZE - 0x1000)
+
+// 100mb
+#define KERNEL_HEAP_SIZE 0x6400000
+#define KERNEL_HEAP (KERNEL_STACK - KERNEL_HEAP_SIZE - 0x1000)
+
+// 100mb
+#define HARDWARE_SPACE_SIZE 0x6400000
+#define HARDWARE_SPACE (KERNEL_HEAP - HARDWARE_SPACE_SIZE - 0x1000)
+
+#define KERNEL_BSS_SIZE 0x4000
+
 typedef struct kernel_load_info
 {
-    uint32_t kernel_size;
-    uint32_t bss_size;
     memory_map_entry_t* memory_map;
     uint8_t memory_map_length;
-    uint32_t *page_directory;
-    uint8_t *mm_bitmap;
     video_settings_t video_settings;
 } kernel_load_info_t;
 

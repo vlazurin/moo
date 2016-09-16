@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include "system.h"
 
-#define MM_BITMAP_SIZE 0x20000
-
 void init_memory_manager(kernel_load_info_t *kernel_params);
 uint32_t alloc_physical_page();
 uint32_t get_physical_address(uint32_t virtual);

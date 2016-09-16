@@ -84,7 +84,7 @@ void detect_pci_devices()
                 device->subclass = (uint8_t)(config >> 16);
                 device->interface = (uint8_t)(config >> 8);
 
-                debug("PCI device at %i:%i:%i; vendor id: %h, device id: %h, class: %h, sublclass: %h, interface: %h\n",
+                debug("[PCI] device at %i:%i:%i; vendor id: %h, device id: %h, class: %h, sublclass: %h, interface: %h\n",
                     bus, slot, function, vendor_id, device_id, device->class, device->subclass, device->interface);
 
                 for(uint8_t bar = 0; bar < 6; bar++)

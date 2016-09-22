@@ -9,6 +9,7 @@
 #include "tasking.h"
 #include "timer.h"
 #include "liballoc.h"
+#include "tests.h"
 
 extern kernel_load_info_t *kernel_params;
 // set by linker
@@ -29,6 +30,10 @@ void main()
 
     init_interrupts();
     init_memory_manager(kernel_params);
+
+    #ifdef DEBUG
+    run_tests();
+    #endif
 
     // copy kernel_params to high memory area
     uint32_t size = sizeof(kernel_load_info_t) + sizeof(memory_map_entry_t) * kernel_params->memory_map_length;

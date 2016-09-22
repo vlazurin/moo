@@ -1,7 +1,9 @@
 #include "../include/string.h"
+#include "../include/debug.h"
 
 void *memset(void *s, int c, size_t n)
 {
+    assert(n > 0);
     unsigned char* p=s;
     while(n--)
         *p++ = (unsigned char)c;

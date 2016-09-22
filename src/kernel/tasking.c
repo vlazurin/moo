@@ -35,7 +35,7 @@ void thread_header(void *entry_point, void *params)
 void create_thread(void *entry_point, void* params)
 {
     thread_t *thread = kmalloc(sizeof(thread_t));
-    memset((void*)thread, sizeof(thread_t), 0);
+    memset((void*)thread, 0, sizeof(thread_t));
     thread->state = THREAD_STATE_RUNNING;
     thread->regs.eip = (uint32_t)&thread_header;
     thread->regs.ebp = (uint32_t)kmalloc(8192) + 8192;
@@ -59,7 +59,7 @@ void create_thread(void *entry_point, void* params)
 void create_process(void *entry_point)
 {
     process_t *process = kmalloc(sizeof(process_t));
-    memset((void*)process, sizeof(process_t), 0);
+    memset((void*)process, 0, sizeof(process_t));
 
     process->id = __sync_fetch_and_add(&next_process_id, 1);
     process->page_dir_base = kmalloc(sizeof(page_directory_t) + 0x1000);
@@ -79,7 +79,7 @@ void create_process(void *entry_point)
     process->page_dir->directory[0] = page_directory->directory[0];
 
     thread_t *thread = kmalloc(sizeof(thread_t));
-    memset(thread, sizeof(thread_t), 0);
+    memset(thread, 0, sizeof(thread_t));
     thread->id = process->next_thread_id++;
     thread->state = THREAD_STATE_RUNNING;
     thread->regs.eip = (uint32_t)&thread_header;
@@ -105,14 +105,14 @@ void create_process(void *entry_point)
 void init_tasking()
 {
     process_t *process = kmalloc(sizeof(process_t));
-    memset((void*)process, sizeof(process_t), 0);
+    memset((void*)process, 0, sizeof(process_t));
     process->next_thread_id = 1;
     process->id = __sync_fetch_and_add(&next_process_id, 1);
     process->page_dir_base = (void*)PAGE_DIRECTORY_VIRTUAL;
     process->page_dir = (page_directory_t*)PAGE_DIRECTORY_VIRTUAL;
 
     thread_t *thread = kmalloc(sizeof(thread_t));
-    memset((void*)thread, sizeof(thread_t), 0);
+    memset((void*)thread, 0, sizeof(thread_t));
     thread->id = 0;
     thread->state = THREAD_STATE_RUNNING;
     thread->process = process;

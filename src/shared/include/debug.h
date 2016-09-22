@@ -10,4 +10,10 @@ void init_debug_serial();
 void debug(const char *format, ...);
 void breakpoint();
 
+#ifdef DEBUG
+#define assert(e) ((e) ? (void)0 : debug("[assert] %s() in %s:%i. Expression: %s\n", __func__, __FILE__, __LINE__, #e))
+#else
+#define assert(e) ((void)0)
+#endif
+
 #endif

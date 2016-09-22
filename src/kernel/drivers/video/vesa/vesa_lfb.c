@@ -13,7 +13,7 @@ void bltblt(gpu_device_t *video_device, surface_t* surface)
 {
     if (video_device->width != surface->width || video_device->height != surface->height)
     {
-        debug("[vesa lfb]surface size != framebuffer size\n");
+        debug("[vesa lfb] surface size != framebuffer size\n");
         return;
     }
 

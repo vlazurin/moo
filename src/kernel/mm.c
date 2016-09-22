@@ -89,13 +89,21 @@ IRQ_HANDLER(page_fault_handler, 1)
 
 void mark_memory_region(uint32_t address, uint32_t size, uint8_t used)
 {
+    assert(used == 0 || used == 1);
     uint32_t page = address / 0x1000;
-    uint32_t count = size / 0x1000;
+    uint32_t count = PAGE_ALIGN(size) / 0x1000;
     debug("[memory manager] mark region: address %h, start page %i, count %i, used flag %i\n", address, page, count, used);
     mutex_lock(&mm_mutex);
     for(uint32_t i = 0; i < count; i++)
     {
-        bitmap[(page + i) / 8] |= ((used & 1) << ((page + i) % 8));
+        if (used == 1)
+        {
+            bitmap[(page + i) / 8] |= (1 << ((page + i) % 8));
+        }
+        else
+        {
+            bitmap[(page + i) / 8] &= ~(1 << ((page + i) % 8));
+        }
     }
     mutex_release(&mm_mutex);
 }

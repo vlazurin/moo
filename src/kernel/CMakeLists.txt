@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 
 set(CMAKE_ASM_FLAGS "-m32 -march=i686 -ffreestanding -Wall -Werror")
-set(CMAKE_C_FLAGS "-O0 -m32 -march=i686 -ffreestanding -Wall -fno-common -Werror")
+set(CMAKE_C_FLAGS "-O0 -m32 -march=i686 -ffreestanding -Wall -fno-common -Werror -DDEBUG")
 set(CMAKE_EXE_LINKER_FLAGS "-T${CMAKE_SOURCE_DIR}/kernel.ld -nostdlib -Wl,-Map=mapfile")
 
 include_directories(../shared/include)
@@ -30,7 +30,8 @@ set(SOURCE_FILES
         ../shared/sources/debug.c
         ../shared/sources/string.c
         ../shared/sources/port.c
-        ../shared/sources/stdlib.c)
+        ../shared/sources/stdlib.c
+        ./tests/tests.c)
 add_executable(kernel ${SOURCE_FILES})
 
 add_custom_command(TARGET kernel POST_BUILD COMMAND bash ${CMAKE_SOURCE_DIR}/../make_image.sh)

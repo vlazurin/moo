@@ -1,3 +1,6 @@
+// temporary solution, because with DEBUG params liballoc includes standard C library files
+#undef DEBUG
+
 #include "liballoc.h"
 #include <stdint.h>
 /**  Durand's Amazing Super Duper Memory functions.  */

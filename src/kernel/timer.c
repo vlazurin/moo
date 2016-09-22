@@ -21,7 +21,7 @@ void process_timers()
             {
                 timer_t *tmp = iterator;
                 iterator = (timer_t*)iterator->list.next;
-                delete_from_list(timers, tmp);
+                delete_from_list((void*)&timers, tmp);
                 // after this line timer can not exist(deleted by waiting thread)
                 __sync_val_compare_and_swap(&tmp->busy, 1, 0);
             }

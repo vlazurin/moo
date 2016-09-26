@@ -103,17 +103,17 @@ void rx_thread(e1000_device_t *dev)
         uint8_t drop = 0;
         if ((dev->rx_base[dev->rx_tail].status & (1 << 1)) == 0)
         {
-            debug("e1000: no End Of Packet flag. Status: %h, packet ignored.\n", dev->rx_base[dev->rx_tail].status);
+            debug("[e1000] no End Of Packet flag. Status: %h, packet ignored.\n", dev->rx_base[dev->rx_tail].status);
             drop = 1;
         }
         else if (dev->rx_base[dev->rx_tail].length < 60)
         {
-            debug("e1000: packet length is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].length);
+            debug("[e1000] packet length is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].length);
             drop = 1;
         }
         else if (dev->rx_base[dev->rx_tail].errors)
         {
-            debug("e1000: packet error code is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].errors);
+            debug("[e1000] packet error code is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].errors);
             drop = 1;
         }
 
@@ -121,7 +121,7 @@ void rx_thread(e1000_device_t *dev)
         {
             net_dev->receive_packet(net_dev, dev->rx_data_buffer + dev->rx_tail * DESCRIPTOR_BUFFER_SIZE);
         }
-        debug("got packet\n");
+
         dev->rx_base[dev->rx_tail].status = 0;
         dev->rx_tail = (dev->rx_tail + 1) % RX_DESCRIPTORS_COUNT;
         mmio_write32(dev->mmio, E1000_REG_RDT, dev->rx_tail);
@@ -139,10 +139,12 @@ void e1000_setup_tx(e1000_device_t *dev)
 
     dev->tx_base = (void*)virtual_addr;
     memset(dev->tx_base, 0, sizeof(e1000_tx_descriptor_t) * TX_DESCRIPTORS_COUNT);
-    debug("virtual: %h, physical: %h, pages count: %i\n", virtual_addr, physical_addr, desc_pages);
 
-    dev->tx_data_buffer = kmalloc(DESCRIPTOR_BUFFER_SIZE * TX_DESCRIPTORS_COUNT);
-    memset(dev->tx_data_buffer, 0, DESCRIPTOR_BUFFER_SIZE * TX_DESCRIPTORS_COUNT);
+    uint16_t pages_count = PAGE_ALIGN(DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT) / 0x1000;
+    dev->tx_data_buffer = (void*)alloc_hardware_space_chunk(pages_count);
+    uint32_t phys_addr = alloc_physical_range(pages_count);
+    map_virtual_to_physical_range((uint32_t)dev->tx_data_buffer, phys_addr, pages_count);
+    memset(dev->tx_data_buffer, 0, DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT);
 
     for (uint16_t i = 0; i < TX_DESCRIPTORS_COUNT; i++)
     {
@@ -198,9 +200,11 @@ void e1000_setup_rx(e1000_device_t *dev)
 
     dev->rx_base = (void*)virtual_addr;
     memset(dev->rx_base, 0, sizeof(e1000_rx_descriptor_t) * RX_DESCRIPTORS_COUNT);
-    debug("virtual: %h, physical: %h, pages count: %i\n", virtual_addr, physical_addr, desc_pages);
 
-    dev->rx_data_buffer = kmalloc(DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT);
+    uint16_t pages_count = PAGE_ALIGN(DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT) / 0x1000;
+    dev->rx_data_buffer = (void*)alloc_hardware_space_chunk(pages_count);
+    uint32_t phys_addr = alloc_physical_range(pages_count);
+    map_virtual_to_physical_range((uint32_t)dev->rx_data_buffer, phys_addr, pages_count);
     memset(dev->rx_data_buffer, 0, DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT);
 
     for (uint16_t i = 0; i < RX_DESCRIPTORS_COUNT; i++)
@@ -227,25 +231,25 @@ void send_packet(network_device_t *net_dev, void *packet, size_t size)
 
     if (packet == 0)
     {
-        debug("e1000: can't send packet because of zero pointer\n");
+        debug("[e1000] can't send packet because of zero pointer\n");
         return;
     }
 
     if (size == 0)
     {
-        debug("e1000: can't send empty packet\n");
+        debug("[e1000] can't send empty packet\n");
         return;
     }
 
     if (size > MAX_ETHERNET_PAYLOAD_SIZE)
     {
-        debug("Trying to send eth packet with size > %i\n", MAX_ETHERNET_PAYLOAD_SIZE);
+        debug("[e1000] trying to send eth packet with size > %i\n", MAX_ETHERNET_PAYLOAD_SIZE);
         return;
     }
 
     if (size < MIN_ETHERNET_PACKET_SIZE)
     {
-        debug("Trying to send eth packet with size < %i\n", MIN_ETHERNET_PACKET_SIZE);
+        debug("[e1000] trying to send eth packet with size < %i\n", MIN_ETHERNET_PACKET_SIZE);
         return;
     }
 
@@ -335,5 +339,5 @@ void e1000_init(pci_device_t *pci_dev)
     e1000_setup_tx(dev);
     create_thread(rx_thread, dev);
     e1000_enable(net_dev);
-    debug("e1000: initialized\n");
+    debug("[e1000] initialized\n");
 }

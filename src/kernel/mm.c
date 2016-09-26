@@ -183,11 +183,12 @@ uint32_t alloc_physical_range(uint16_t count)
                 found++;
                 if (found == count)
                 {
-                    for(uint32_t ai = ci; ai < count; ai++)
+                    for(uint32_t ai = ci; count > 0; ai++)
                     {
-                        for(uint8_t ax = cx; ax < 8; ax++)
+                        for(uint8_t ax = cx; ax < 8 && count > 0; ax++)
                         {
-                            bitmap[ai] |= 1 << ax;
+                            bitmap[ai] |= (1 << ax);
+                            count--;
                         }
                     }
                     mutex_release(&mm_mutex);

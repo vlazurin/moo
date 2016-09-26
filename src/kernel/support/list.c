@@ -28,3 +28,17 @@ void delete_from_list(void **list, void* node)
         next->prev = prev;
     }
 }
+
+uint32_t get_list_length(void *list)
+{
+    list_node_t *current = list;
+    uint32_t length = 0;
+
+    while(current != 0)
+    {
+        length++;
+        current = current->next;
+    }
+
+    return length;
+}

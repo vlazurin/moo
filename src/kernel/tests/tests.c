@@ -87,8 +87,100 @@ void test_mm_mark_memory_region()
     asm("sti");
 }
 
+// risky test, because memory bitmap is replaced by dummy, so any real usage can cause system crash
+void test_alloc_physical_range()
+{
+    asm("cli");
+    uint8_t *old = bitmap;
+    uint8_t *new_bitmap = kmalloc(MM_BITMAP_SIZE);
+    memset(new_bitmap, 0, MM_BITMAP_SIZE);
+    bitmap = new_bitmap;
+
+    mark_memory_region(0, 0x9000, 1);
+    uint32_t addr = alloc_physical_range(3);
+    assert(addr == 0x9000);
+    addr = alloc_physical_range(1);
+    assert(addr == 0xC000);
+    mark_memory_region(0xE000, 0x1000, 1);
+    addr = alloc_physical_range(2);
+    assert(addr == 0xF000);
+    kfree(new_bitmap);
+    bitmap = old;
+    asm("sti");
+}
+
+#include "arp.h"
+extern arp_entry_t *arp_cache;
+
+void test_get_mac_from_cache()
+{
+    eth_addr_t addr = ETH_ADDR_EMPTY;
+    ip4_addr_t ip = BUILD_IP4_ADDR(192, 168, 0, 2);
+
+    arp_cache = 0;
+
+    uint8_t result = get_mac_from_cache(&ip, &addr);
+    assert(result == 0);
+
+    arp_entry_t entry;
+    entry.ip_addr = ip;
+    eth_addr_t tmp = {{19, 200, 20, 34, 23, 17}};
+    entry.mac = tmp;
+    add_to_list(arp_cache, &entry);
+    arp_entry_t entry2;
+    ip4_addr_t ip2 = BUILD_IP4_ADDR(192, 168, 0, 3);
+    entry2.ip_addr = ip2;
+    eth_addr_t tmp2 = {{34, 89, 01, 34, 23, 70}};
+    entry2.mac = tmp2;
+    add_to_list(arp_cache, &entry2);
+
+    result = get_mac_from_cache(&ip, &addr);
+    assert(result == 1);
+    assert(addr.b[0] == 19);
+    assert(addr.b[5] == 17);
+
+    result = get_mac_from_cache(&ip2, &addr);
+    assert(result == 1);
+    assert(addr.b[0] == 34);
+    assert(addr.b[5] == 70);
+
+    arp_cache = 0;
+}
+
+void test_add_mac_to_arp_cache()
+{
+    eth_addr_t mac = {{19, 200, 20, 34, 23, 17}};
+    ip4_addr_t ip = BUILD_IP4_ADDR(192, 168, 0, 1);
+    eth_addr_t mac2 = {{20, 200, 20, 34, 23, 117}};
+    ip4_addr_t ip2 = BUILD_IP4_ADDR(192, 168, 0, 2);
+
+    arp_cache = 0;
+
+    add_mac_to_arp_cache(&ip, &mac);
+    eth_addr_t out = ETH_ADDR_EMPTY;
+    assert(get_mac_from_cache(&ip, &out));
+    assert(out.b[0] == 19);
+    assert(out.b[5] == 17);
+
+    add_mac_to_arp_cache(&ip2, &mac2);
+    assert(get_mac_from_cache(&ip2, &out));
+    assert(out.b[0] == 20);
+    assert(out.b[5] == 117);
+
+    mac2.b[0] = 21;
+    add_mac_to_arp_cache(&ip2, &mac2);
+    assert(get_mac_from_cache(&ip2, &out));
+    assert(out.b[0] == 21);
+    assert(out.b[5] == 117);
+    assert(get_list_length(arp_cache) == 2);
+    arp_cache = 0;
+}
+
 void run_tests()
 {
     test_list();
     test_mm_mark_memory_region();
+    test_alloc_physical_range();
+    test_get_mac_from_cache();
+    test_add_mac_to_arp_cache();
 }

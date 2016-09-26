@@ -49,7 +49,7 @@ void set_timer(timer_t *timer)
 void sleep(uint32_t delay)
 {
     uint32_t finish_ticks = get_pit_ticks() + delay;
-    while(finish_ticks < get_pit_ticks())
+    while(finish_ticks > get_pit_ticks())
     {
         force_task_switch();
     }

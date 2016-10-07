@@ -58,6 +58,7 @@ void debug(const char *format, ...)
     char *str = 0;
     char buffer[11];
     memset(buffer, 0, 11);
+    asm("cli");
 
     while(*format != '\0')
     {
@@ -103,5 +104,7 @@ void debug(const char *format, ...)
         }
         format++;
     }
+
+    asm("sti");
     va_end(args);
 }

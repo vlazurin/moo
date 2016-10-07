@@ -12,6 +12,7 @@
 #include "tests.h"
 #include "network.h"
 #include "dhcp.h"
+#include "tcp.h"
 
 extern kernel_load_info_t *kernel_params;
 // set by linker

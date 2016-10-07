@@ -5,6 +5,7 @@
 #include "string.h"
 #include "arp.h"
 #include "ip.h"
+#include "tcp.h"
 #include "udp.h"
 #include "stdlib.h"
 
@@ -61,6 +62,10 @@ void receive_packet(struct network_device *net_dev, eth_packet_t *packet)
         if (ip_packet->ip.protocol == PROTOCOL_UDP)
         {
             process_udp_packet(net_dev, ip_packet);
+        }
+        else if (ip_packet->ip.protocol == PROTOCOL_TCP)
+        {
+            process_tcp_packet(net_dev, ip_packet);
         }
     }
 

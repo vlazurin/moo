@@ -139,7 +139,7 @@ uint32_t alloc_physical_page()
         {
             if (!(bitmap[i] & (1 << x)))
             {
-                bitmap[i] |= 1 << x;
+                bitmap[i] |= (1 << x);
                 mutex_release(&mm_mutex);
                 return ((i * 8 + x) * 0x1000);
             }
@@ -183,13 +183,15 @@ uint32_t alloc_physical_range(uint16_t count)
                 found++;
                 if (found == count)
                 {
+                    uint8_t ax = cx;
                     for(uint32_t ai = ci; count > 0; ai++)
                     {
-                        for(uint8_t ax = cx; ax < 8 && count > 0; ax++)
+                        for(; ax < 8 && count > 0; ax++)
                         {
                             bitmap[ai] |= (1 << ax);
                             count--;
                         }
+                        ax = 0;
                     }
                     mutex_release(&mm_mutex);
                     return ((ci * 8 + cx) * 0x1000);

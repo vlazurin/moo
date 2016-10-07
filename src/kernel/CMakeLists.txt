@@ -30,6 +30,7 @@ set(SOURCE_FILES
         ./network/ip.c
         ./network/udp.c
         ./network/dhcp.c
+        ./network/tcp.c
         ./drivers/video/vesa/vesa_lfb.c
         ./drivers/network/e1000/e1000.c
         ../shared/sources/system.c

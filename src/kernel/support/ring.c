@@ -42,6 +42,11 @@ void* ring_pop(ring_t *ring)
 
 void ring_free(ring_t *ring)
 {
+    void *ptr = ring->pop(ring);
+    while(ptr != 0)
+    {
+        kfree(ptr);
+    }
     kfree(ring->buffer);
     kfree(ring);
 }

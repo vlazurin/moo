@@ -18,7 +18,7 @@ extern page_directory_t *page_directory;
 void terminate_thread()
 {
     cli();
-    debug("thread %i terminated in process %i\n", current_thread->id, current_thread->process->id);
+    debug("[kernel] thread %i terminated in process %i\n", current_thread->id, current_thread->process->id);
     current_thread->state = THREAD_STATE_TERMINATED;
     sti();
     force_task_switch();
@@ -153,6 +153,7 @@ void switch_task()
     next = (thread_t*)current_thread->list.next;
     prev = current_thread;
     process_t *next_proc = current_process;
+    // TODO: save coprocessor state
     while(1)
     {
         if (next == 0)

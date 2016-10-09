@@ -170,6 +170,18 @@ void handle_received_payload(tcp_socket_t *socket, uint8_t *reply_flags, tcp_pac
 void handle_established_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packet_t *packet)
 {
     handle_received_payload(socket, reply_flags, packet);
+
+    if (packet->tcp.flags & TCP_FLAG_FIN)
+    {
+        socket->state = TCP_CONNECTION_CLOSE_WAIT;
+        *reply_flags |= TCP_FLAG_ACK;
+        socket->ack_number++;
+
+        char ip_string[16];
+        memset(&ip_string, 0, 16);
+        ip4_to_str(&socket->remote_host, ip_string);
+        debug("[tcp] received FIN from remote: %s:%i, socket state is CLOSE_WAIT\n", ip_string, socket->remote_port);
+    }
 }
 
 void handle_last_ask_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packet_t *packet)
@@ -179,6 +191,8 @@ void handle_last_ask_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packe
         socket->state = TCP_CONNECTION_TIME_WAIT;
         socket->ttl = TCP_SOCKET_TIME_WAIT + get_pit_ticks();
         delete_from_list((void*)&tcp_binders[socket->port]->connected, socket);
+        // TODO: socket must know about own queue, so we don't need to try delete from 2 queues
+        delete_from_list((void*)&tcp_binders[socket->port]->accept_wait, socket);
         add_to_list(tcp_binders[socket->port]->time_wait, socket);
 
         char ip_string[16];
@@ -582,6 +596,7 @@ uint8_t tcp_bind(network_device_t* net_dev, uint16_t port, tcp_socket_binder_t *
     memset(tcp_binders[port], 0, sizeof(tcp_socket_binder_t));
     tcp_binders[port]->port = port;
     *out = tcp_binders[port];
+    debug("[tcp] port %i binded\n", port);
     return TCP_SOCKET_SUCCESS;
 }
 
@@ -629,5 +644,6 @@ uint8_t close_tcp_connection(tcp_socket_t *socket)
 uint8_t tcp_listen(tcp_socket_binder_t *binder)
 {
     binder->is_listening = 1;
+    debug("[tcp] listens on port %i\n", binder->port);
     return TCP_SOCKET_SUCCESS;
 }

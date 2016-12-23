@@ -51,8 +51,16 @@ void init_interrupts();
         #name "_common:\n"              \
         "pushal \n" 					\
         "pushf \n" 					\
+        "push %edx \n" 					\
+        "push %ecx \n" 					\
+        "push %ebx \n" 					\
+        "push %eax \n" 					\
         "cld \n"						\
         "call __irq_" #name "\n"		\
+        "pop %eax \n" 					\
+        "pop %ebx \n" 					\
+        "pop %ecx \n" 					\
+        "pop %edx \n" 					\
         "cld \n"						\
         "call send_eoi \n"				\
         "sti \n"						\
@@ -61,6 +69,30 @@ void init_interrupts();
         "popf \n"						\
         "popal \n"						\
         "iretl");            			\
-        extern void name();        		\
-        void __irq_##name()
+        extern void name(uint32_t syscall_num, uint32_t param1, uint32_t param2, uint32_t param3);  \
+        void __irq_##name(uint32_t syscall_num, uint32_t param1, uint32_t param2, uint32_t param3)
+
+#define SYSCALL_HANDLER(name) int res_##name = 0; \
+        asm (         \
+        ".text\n"						\
+        #name ":\n"              	  	\
+        "pushal \n" 					\
+        "pushf \n" 					\
+        "push %edx \n" 					\
+        "push %ecx \n" 					\
+        "push %ebx \n" 					\
+        "push %eax \n" 					\
+        "cld \n"						\
+        "call __syscall_" #name "\n"		\
+        "movl %eax, res_" #name "\n" \
+        "pop %eax \n" 					\
+        "pop %ebx \n" 					\
+        "pop %ecx \n" 					\
+        "pop %edx \n" 					\
+        "popf \n"						\
+        "popal \n"						\
+        "movl res_" #name ", %eax\n" \
+        "iretl");            			\
+        extern int name(uint32_t syscall_num, uint32_t param1, uint32_t param2, uint32_t param3);  \
+        int __syscall_##name(uint32_t syscall_num, uint32_t param1, uint32_t param2, uint32_t param3)
 #endif

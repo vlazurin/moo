@@ -5,6 +5,7 @@
 
 #define ALIGN(n, a) (((n) + (a - 1)) & ~(a - 1))
 #define PAGE_ALIGN(n) ALIGN(n, 0x1000)
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 uint16_t crc16(uint8_t *data, uint32_t length);
 

@@ -21,7 +21,9 @@ typedef struct buffer
 
     uint8_t (*add)(struct buffer*, void*, uint32_t);
     uint32_t (*get)(struct buffer*, void*, uint32_t);
+    uint32_t (*get_until)(struct buffer*, void*, uint32_t, uint8_t);
     uint32_t (*get_free_space)(struct buffer*);
+    void (*clear)(struct buffer*);
     void (*free)(struct buffer*);
 } buffer_t;
 

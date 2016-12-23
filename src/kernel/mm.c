@@ -92,7 +92,7 @@ void mark_memory_region(uint32_t address, uint32_t size, uint8_t used)
     assert(used == 0 || used == 1);
     uint32_t page = address / 0x1000;
     uint32_t count = PAGE_ALIGN(size) / 0x1000;
-    debug("[memory manager] mark region: address %h, start page %i, count %i, used flag %i\n", address, page, count, used);
+    //debug("[memory manager] mark region: address %h, start page %i, count %i, used flag %i\n", address, page, count, used);
     mutex_lock(&mm_mutex);
     for(uint32_t i = 0; i < count; i++)
     {
@@ -233,6 +233,12 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
 
     page_directory->pages[dir][page] = physical | 3;
     asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
+
+    process_t *p = get_curent_proccess();
+    if ((uint32_t)p->brk < virtual)
+    {
+        p->brk = (void*)virtual + 0x1000;
+    }
 }
 
 void map_virtual_to_physical_range(uint32_t virtual, uint32_t physical, uint16_t count)
@@ -253,5 +259,6 @@ uint32_t get_physical_address(uint32_t virtual)
         return (page_directory->pages[dir][page] & 0xFFFFF000) + (virtual & 0xFFF);
     }
 
+    // TODO: not good idea to return 0, it can be correct value
     return 0;
 }

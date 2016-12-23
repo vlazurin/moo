@@ -38,8 +38,8 @@ uint32_t *bss_end;
 void fill_paging_info(uint32_t virtual, uint32_t physical, uint32_t pages_count)
 {
     virtual = virtual & 0xFFFFF000;
-    debug("[loader] mapping %h - %h to physical %h - %h\n",
-        virtual, virtual + pages_count * 0x1000 - 1, physical, physical + pages_count * 0x1000 - 1);
+    //debug("[loader] mapping %h - %h to physical %h - %h\n",
+    //    virtual, virtual + pages_count * 0x1000 - 1, physical, physical + pages_count * 0x1000 - 1);
     for(uint32_t i = 0; i < pages_count; i++)
     {
         uint32_t dir = (virtual >> 22);
@@ -71,7 +71,7 @@ void main()
 {
     // zero all global vars with 0 value
     memset(&bss_end, 0, &bss_end - &bss_start);
-    debug("[loader] bss size is %h\n", &bss_end - &bss_start);
+    //debug("[loader] bss size is %h\n", &bss_end - &bss_start);
     memory_map_length = detect_upper_memory(memory_map);
     // first 1mb of memory
     add_to_memory_map(0x0, 0x100000, MEMORY_MAP_REGION_RESERVED);
@@ -89,11 +89,10 @@ void main()
     uint16_t cluster_size = bytes_per_cluster();
     void *load_addr = 0;
     uint8_t *kernel_entry_point = 0;
-    uint32_t kernel_size = PAGE_ALIGN(kernel->file_size + KERNEL_BSS_SIZE);
-    debug("[loader] kernel size is %h + %h bss\n", kernel->file_size, KERNEL_BSS_SIZE);
+    uint32_t kernel_size = PAGE_ALIGN(kernel->file_size + KERNEL_BSS_SIZE + 0x1000); // Page Fault without +0x1000
+    //debug("[loader] kernel size is %h + %h bss\n", kernel->file_size, KERNEL_BSS_SIZE);
     uint32_t required_memory = kernel_size + PAGE_DIRECTORY_TOTAL_SIZE + MM_BITMAP_SIZE + KERNEL_STACK_SIZE;
-    debug("[loader] total required memory: %h\n", required_memory);
-
+    //debug("[loader] total required memory: %h\n", required_memory);
     for(uint8_t i = 0; i < memory_map_length; i++)
     {
         // ignore lower memory
@@ -107,16 +106,19 @@ void main()
         if (memory_map[i].type == MEMORY_MAP_REGION_FREE && required_memory <= free_memory)
         {
             load_addr = (void*)PAGE_ALIGN(memory_map[i].base_low);
-            debug("[loader] loading data at %h\n", load_addr);
+            //debug("[loader] loading data at %h\n", load_addr);
             kernel_entry_point = load_addr;
             void *buffer = (void*)LOAD_BUFFER;
+            uint32_t loaded = 0;
             uint16_t cluster = kernel->start_cluster;
             while (cluster != 0)
             {
                 cluster = read_cluster(cluster, buffer);
                 memcpy(load_addr, buffer, cluster_size);
                 load_addr += cluster_size;
+                loaded += cluster_size;
             }
+            //debug("[loader] loaded %i, kernel size is %i\n", loaded, kernel->file_size);
             break;
         }
     }
@@ -128,8 +130,7 @@ void main()
     }
 
     load_addr = (void*)PAGE_ALIGN((uintptr_t)load_addr + KERNEL_BSS_SIZE);
-
-    page_directory = (page_directory_t*)load_addr;
+    page_directory = (page_directory_t*)(load_addr + 0xF000); // + 0x1000 because current page is a last BSS page
     debug("[loader] page directory location is %h\n", load_addr);
     uint32_t *page_table = 0;
 
@@ -148,8 +149,8 @@ void main()
     fill_paging_info(0, 0, 256);
     fill_paging_info(0xE1C00000, (uint32_t)kernel_entry_point, kernel_size / 0x1000);
     fill_paging_info(PAGE_DIRECTORY_VIRTUAL, (uint32_t)page_directory, PAGE_DIRECTORY_TOTAL_SIZE / 0x1000);
-    fill_paging_info(MM_BITMAP_VIRTUAL, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE, MM_BITMAP_SIZE / 0x1000);
-    fill_paging_info(KERNEL_STACK, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE + MM_BITMAP_SIZE, KERNEL_STACK_SIZE / 0x1000);
+    fill_paging_info(MM_BITMAP_VIRTUAL, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE + 0x1000, MM_BITMAP_SIZE / 0x1000);
+    fill_paging_info(KERNEL_STACK, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE + MM_BITMAP_SIZE  + 0x2000, KERNEL_STACK_SIZE / 0x1000);
 
     add_to_memory_map((uint32_t)kernel_entry_point, required_memory, MEMORY_MAP_REGION_RESERVED);
 
@@ -163,7 +164,7 @@ void main()
 
     kernel_params.memory_map = memory_map;
     kernel_params.memory_map_length = memory_map_length;
-    set_video_mode(&kernel_params.video_settings);
+    //set_video_mode(&kernel_params.video_settings);
 
     // enable protected mode
     asm("cli");

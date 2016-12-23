@@ -42,7 +42,7 @@ uint8_t buffer_add(buffer_t *buffer, void *payload, uint32_t size)
     return BUFFER_OK;
 }
 
-uint32_t buffer_get(buffer_t *buffer, void *dest, uint32_t size)
+uint32_t buffer_get_until(buffer_t *buffer, void *dest, uint32_t size, uint8_t stop)
 {
     mutex_lock(&buffer->mutex);
 
@@ -56,9 +56,14 @@ uint32_t buffer_get(buffer_t *buffer, void *dest, uint32_t size)
     uint8_t *p = (uint8_t*)dest;
     while(buffer->head != buffer->tail && copied < size)
     {
-        *p++ = buffer->buffer[buffer->tail];
+        *p = buffer->buffer[buffer->tail];
         buffer->tail = (buffer->tail + 1) % buffer->size;
         copied++;
+        if (*p == stop && stop > 0)
+        {
+            break;
+        }
+        p++;
     }
 
     if (buffer->tail == buffer->head)
@@ -68,6 +73,19 @@ uint32_t buffer_get(buffer_t *buffer, void *dest, uint32_t size)
 
     mutex_release(&buffer->mutex);
     return copied;
+}
+
+uint32_t buffer_get(buffer_t *buffer, void *dest, uint32_t size)
+{
+    return buffer_get_until(buffer, dest, size, 0);
+}
+
+void buffer_clear(buffer_t *buffer)
+{
+    mutex_lock(&buffer->mutex);
+    buffer->head = buffer->tail = 0;
+    buffer->is_full = 0;
+    mutex_release(&buffer->mutex);
 }
 
 uint32_t buffer_get_free_space(buffer_t *buffer)
@@ -101,6 +119,8 @@ buffer_t* create_buffer(uint32_t size)
     buffer->size = size;
     buffer->add = &buffer_add;
     buffer->get = &buffer_get;
+    buffer->get_until = &buffer_get_until;
+    buffer->clear = &buffer_clear;
     buffer->get_free_space = &buffer_get_free_space;
     buffer->free = &buffer_free;
 

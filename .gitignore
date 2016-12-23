@@ -4,3 +4,7 @@ Makefile
 disk_image
 sdb.vdi
 debug.txt
+net_trace.pcap
+scripts/src/
+scripts/build
+scripts/packages

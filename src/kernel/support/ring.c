@@ -40,6 +40,24 @@ void* ring_pop(ring_t *ring)
     return payload;
 }
 
+/**
+ * Risky to use if tail position isn't 0
+ */
+void* ring_head_pop(ring_t *ring)
+{
+    mutex_lock(&ring->head_mutex);
+    if (ring->tail == ring->head)
+    {
+        mutex_release(&ring->head_mutex);
+        return NULL;
+    }
+
+    void *payload = (void*)ring->buffer[ring->head - 1];
+    ring->head = (ring->head - 1) % ring->size;
+    mutex_release(&ring->head_mutex);
+    return payload;
+}
+
 void ring_free(ring_t *ring)
 {
     void *ptr = ring->pop(ring);
@@ -62,6 +80,7 @@ ring_t* create_ring(uint32_t size)
     ring->size = size;
     ring->push = &ring_push;
     ring->pop = &ring_pop;
+    ring->head_pop = &ring_head_pop;
     ring->free = &ring_free;
 
     return ring;

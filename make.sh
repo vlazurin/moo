@@ -10,7 +10,7 @@ while getopts "b" opt; do
     esac
 done
 
-ssh -t vasiliy@127.0.0.1 -p3022 'cd /media/sf_moo/build; make'
+ssh -t vasiliy@127.0.0.1 -p3023 'cd /media/sf_moo/build; make'
 result=$?;
 if [[ $result = 0 ]]; then
     if [[ $bochs = 0 ]]; then

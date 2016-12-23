@@ -59,7 +59,7 @@ void debug(const char *format, ...)
     char buffer[11];
     memset(buffer, 0, 11);
     asm("cli");
-
+    
     while(*format != '\0')
     {
         switch(*format)

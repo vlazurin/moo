@@ -1,0 +1,107 @@
+diff -c -r ./gcc-4.6.4/config.sub ./src/gcc-4.6.4/config.sub
+*** ./gcc-4.6.4/config.sub	Tue May 25 16:22:07 2010
+--- ./src/gcc-4.6.4/config.sub	Sat Nov 26 18:15:17 2016
+***************
+*** 1298,1303 ****
+--- 1298,1304 ----
+  	      | -sym* | -kopensolaris* \
+  	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+  	      | -aos* | -aros* \
++           | -moo* \
+  	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+  	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+  	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -c -r ./gcc-4.6.4/gcc/config.gcc ./src/gcc-4.6.4/gcc/config.gcc
+*** ./gcc-4.6.4/gcc/config.gcc	Wed Mar  6 19:40:07 2013
+--- ./src/gcc-4.6.4/gcc/config.gcc	Sat Nov 26 18:15:17 2016
+***************
+*** 684,689 ****
+--- 684,695 ----
+  *-*-solaris2*)
+    extra_options="${extra_options} sol2.opt"
+    ;;
++ *-*-moo*)
++   extra_parts=""
++   gas=yes
++   gnu_ld=yes
++   default_use_cxa_atexit=yes
++   ;;
+  *-*-vxworks*)
+    tmake_file=t-vxworks
+    xm_defines=POSIX
+***************
+*** 1195,1200 ****
+--- 1201,1211 ----
+  		dwarf2=no
+  	fi
+  	;;
++ i[34567]86-*-moo*)
++ 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h moo.h"
++ 	tmake_file="${tmake_file} i386/t-i386elf t-svr4 i386/t-crtstuff"
++ 	use_fixproto=yes
++ 	;;
+  i[34567]86-*-darwin*)
+  	need_64bit_hwint=yes
+  	need_64bit_isa=yes
+diff -c -r ./gcc-4.6.4/gcc/cp/cfns.gperf ./src/gcc-4.6.4/gcc/cp/cfns.gperf
+*** ./gcc-4.6.4/gcc/cp/cfns.gperf	Tue Apr 21 22:03:23 2009
+--- ./src/gcc-4.6.4/gcc/cp/cfns.gperf	Sat Nov 26 20:28:29 2016
+***************
+*** 22,27 ****
+--- 22,30 ----
+  static unsigned int hash (const char *, unsigned int);
+  #ifdef __GNUC__
+  __inline
++ #ifdef __GNUC_STDC_INLINE__
++   __attribute__ ((__gnu_inline__))
++ #endif
+  #endif
+  const char * libc_name_p (const char *, unsigned int);
+  %}
+diff -c -r ./gcc-4.6.4/gcc/cp/cfns.h ./src/gcc-4.6.4/gcc/cp/cfns.h
+*** ./gcc-4.6.4/gcc/cp/cfns.h	Tue Apr 21 22:03:23 2009
+--- ./src/gcc-4.6.4/gcc/cp/cfns.h	Sat Nov 26 20:28:18 2016
+***************
+*** 53,58 ****
+--- 53,61 ----
+  static unsigned int hash (const char *, unsigned int);
+  #ifdef __GNUC__
+  __inline
++ #ifdef __GNUC_STDC_INLINE__
++   __attribute__ ((__gnu_inline__))
++ #endif
+  #endif
+  const char * libc_name_p (const char *, unsigned int);
+  /* maximum key range = 391, duplicates = 0 */
+diff -c -r ./gcc-4.6.4/libgcc/config.host ./src/gcc-4.6.4/libgcc/config.host
+*** ./gcc-4.6.4/libgcc/config.host	Thu Nov 24 00:15:54 2011
+--- ./src/gcc-4.6.4/libgcc/config.host	Sat Nov 26 18:15:17 2016
+***************
+*** 336,341 ****
+--- 336,343 ----
+  	;;
+  i[34567]86-*-interix3*)
+  	;;
++ i[34567]86-*-moo*)
++ 	;;
+  ia64*-*-elf*)
+  	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
+  	tmake_file="ia64/t-ia64"
+diff -c -r ./gcc-4.6.4/libstdc++-v3/crossconfig.m4 ./src/gcc-4.6.4/libstdc++-v3/crossconfig.m4
+*** ./gcc-4.6.4/libstdc++-v3/crossconfig.m4	Fri Feb  4 09:26:57 2011
+--- ./src/gcc-4.6.4/libstdc++-v3/crossconfig.m4	Sat Nov 26 18:15:17 2016
+***************
+*** 249,254 ****
+--- 249,260 ----
+        AC_DEFINE(HAVE_ISNANL)
+      fi
+      ;;
++   *-moo*)
++     AC_CHECK_HEADERS([sys/types.h local.h float.h])
++     GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
++     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
++     GLIBCXX_CHECK_STDLIB_SUPPORT
++     ;;
+    *-vxworks)
+      AC_DEFINE(HAVE_ACOSF)
+      AC_DEFINE(HAVE_ASINF)

@@ -354,7 +354,7 @@ void process_socket_queue(tcp_socket_t **list, void* transmit_payload)
         }
 
         uint32_t copied = 0;
-        if (socket->state == TCP_CONNECTION_ESTABLISHED || socket->state == TCP_CONNECTION_CLOSE_WAIT)
+        if (socket->state == TCP_CONNECTION_ESTABLISHED || socket->state == TCP_CONNECTION_CLOSE_WAIT || socket->state == TCP_CONNECTION_FIN_1)
         {
             uint32_t max_payload_size = (socket->remote_window_size < TCP_MAX_PAYLOAD_SIZE ? socket->remote_window_size : TCP_MAX_PAYLOAD_SIZE);
             copied = socket->transmit_buffer->get(socket->transmit_buffer, transmit_payload, max_payload_size);
@@ -497,7 +497,7 @@ void fill_tcp_checksum(tcp_packet_t *packet, ip4_addr_t *source, ip4_addr_t *des
     }
 
     p = (uint16_t*)&packet->tcp;
-    for(uint8_t i = 0; i < (sizeof(tcp_header_t) + data_size) / 2; i++)
+    for(uint32_t i = 0; i < (sizeof(tcp_header_t) + data_size) / 2; i++)
     {
         checksum += *p; // we dont worry about checksum field, because it's 0
         while(checksum > 0xFFFF)
@@ -507,7 +507,7 @@ void fill_tcp_checksum(tcp_packet_t *packet, ip4_addr_t *source, ip4_addr_t *des
         p++;
     }
 
-    if (data_size % 2 != 0)
+    if ((sizeof(tcp_header_t) + data_size) % 2 != 0)
     {
         checksum += *(uint8_t*)p;
     }

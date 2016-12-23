@@ -7,9 +7,18 @@
 #include "network.h"
 #include "list.h"
 #include "mutex.h"
+#include "ata.h"
 #include "vesa_lfb.h"
 
 driver_map_node_t driver_map[] = {
+    {
+        .vendor_id = 0x0,
+        .device_id = 0x0,
+        .class_id = 0x1,
+        .subclass_id = 0x1,
+        .interface_id = 0x8a,
+        .init = &init_ata
+    },
     {
         .vendor_id = 0x0,
         .device_id = 0x0,
@@ -84,8 +93,8 @@ void detect_pci_devices()
                 device->subclass = (uint8_t)(config >> 16);
                 device->interface = (uint8_t)(config >> 8);
 
-                debug("[PCI] device at %i:%i:%i; vendor id: %h, device id: %h, class: %h, sublclass: %h, interface: %h\n",
-                    bus, slot, function, vendor_id, device_id, device->class, device->subclass, device->interface);
+                //debug("[PCI] device at %i:%i:%i; vendor id: %h, device id: %h, class: %h, sublclass: %h, interface: %h\n",
+                //    bus, slot, function, vendor_id, device_id, device->class, device->subclass, device->interface);
 
                 for(uint8_t bar = 0; bar < 6; bar++)
                 {
@@ -135,7 +144,7 @@ void init_pci_devices()
                 register_network_device(iterator->logical_driver);
                 break;
             }
-            else if (driver_map[i].class_id == iterator->class && driver_map[i].subclass_id == iterator->subclass && driver_map[i].interface_id == iterator->interface)
+            else if (driver_map[i].class_id == iterator->class && driver_map[i].subclass_id == iterator->subclass)
             {
                 driver_map[i].init(iterator);
                 break;

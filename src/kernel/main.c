@@ -2,6 +2,7 @@
 #include "system.h"
 #include "debug.h"
 #include "string.h"
+#include "screen.h"
 #include "interrupts.h"
 #include "mm.h"
 #include "pit.h"
@@ -13,11 +14,25 @@
 #include "network.h"
 #include "dhcp.h"
 #include "tcp.h"
+#include "vfs.h"
+#include "tempfs.h"
+#include "procfs.h"
+#include "elf.h"
+#include "tty.h"
+#include "kb.h"
 
+void setup_syscalls();
 extern kernel_load_info_t *kernel_params;
 // set by linker
 uint32_t *bss_start;
 uint32_t *bss_end;
+
+void init_serial();
+void init_urandom();
+void init_null();
+void init_io();
+
+uint8_t exec(char *path);
 
 void main()
 {
@@ -48,7 +63,22 @@ void main()
     init_pit();
     init_tasking();
     init_timer();
+
+    init_tempfs();
+    uint8_t error = mount_fs("/", "tempfs");
+    if (error)
+    {
+        debug("[kernel] Can't mount root partition, error code: %i\n", error);
+        hlt();
+    }
+    mkdir("/dev");
+    mkdir("/home");
+    mkdir("/home/moo");
+    init_serial();
+
     init_pci_devices();
+    init_screen();
+    init_keyboard();
 
     pci_device_t *dev = get_pci_device_by_class(PCI_CLASS_NETWORK_CONTROLLER);
     network_device_t *net_dev = (network_device_t*)dev->logical_driver;
@@ -57,7 +87,7 @@ void main()
         init_udp_protocol();
         init_tcp_protocol();
         net_dev->enable(net_dev);
-        uint8_t result = configure_dhcp(net_dev);
+        /*uint8_t result = configure_dhcp(net_dev);
         if (result != DHCP_OK)
         {
             debug("[network] DHCP configuration failed, status: %i\n", result);
@@ -73,9 +103,11 @@ void main()
             ip4_to_str(&net_dev->router, buf);
             debug("[network] default router: %s\n", buf);
             debug("[network] DHCP leasing time isn't supported!\n");
-        }
+        }*/
     }
-
+    setup_syscalls();
+    init_io();
+    exec("/random_name");
     debug("[kernel] end of kernel main\n");
 
     while(true){}

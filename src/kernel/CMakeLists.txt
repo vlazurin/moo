@@ -21,16 +21,32 @@ set(SOURCE_FILES
         tasking.c
         process.s
         timer.c
+        io.c
         ./support/list.c
         ./support/ring.c
         ./support/buffer.c
         pci.c
+        elf.c
+        libc.c
+        process.c
+        syscalls.c
+        rand.c
+        ./fs/tty.c
+        ./fs/vfs.c
+        ./fs/tempfs.c
+        ./fs/procfs.c
         ./network/network.c
         ./network/arp.c
         ./network/ip.c
         ./network/udp.c
         ./network/dhcp.c
         ./network/tcp.c
+        ./drivers/char/urandom.c
+        ./drivers/char/kb.c
+        ./drivers/char/screen.c
+        ./drivers/char/serial.c
+        ./drivers/block/ata.c
+        ./drivers/char/null.c
         ./drivers/video/vesa/vesa_lfb.c
         ./drivers/network/e1000/e1000.c
         ../shared/sources/system.c

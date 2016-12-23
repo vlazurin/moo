@@ -241,7 +241,7 @@ void send_packet(network_device_t *net_dev, void *packet, size_t size)
         return;
     }
 
-    if (size > MAX_ETHERNET_PAYLOAD_SIZE)
+    if (size > MAX_ETHERNET_PACKET_SIZE)
     {
         debug("[e1000] trying to send eth packet with size > %i\n", MAX_ETHERNET_PAYLOAD_SIZE);
         return;

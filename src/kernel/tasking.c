@@ -1,6 +1,7 @@
 #include "tasking.h"
 #include "interrupts.h"
 #include "liballoc.h"
+#include "timer.h"
 #include "debug.h"
 #include "string.h"
 #include "mutex.h"
@@ -11,9 +12,69 @@ uint8_t volatile task_switch_required = 0;
 uint8_t tasking_enabled = 0;
 process_t *processes;
 process_t *current_process = 0;
+process_t *fg_process = 0;
 thread_t *current_thread = 0;
 uint32_t next_process_id = 0;
 extern page_directory_t *page_directory;
+
+int fork()
+{
+    int parent_pid = get_pid();
+    process_t *p = create_process(0, 0);
+
+    memcpy((void*)p->threads[0].base_ebp - 8192, (void*)current_thread->base_ebp - 8192, 8192);
+
+    cli();
+    add_to_list(processes, p);
+    p->threads[0].regs.eip = (uint32_t)__builtin_return_address(0);
+    p->threads[0].regs.ebp = (uint32_t)__builtin_frame_address(0) + 4;
+    p->threads[0].regs.esp = p->threads[0].regs.ebp;
+    sti();
+    if (get_pid() != parent_pid) {
+        debug("child returns 0, to %h, %i\n", __builtin_return_address(0), parent_pid);
+        return 0;
+    }
+    debug("parent returns %i, to %h\n", get_pid(), __builtin_return_address(0));
+    return parent_pid;
+}
+
+uint32_t get_pid()
+{
+    return current_process->id;
+}
+
+process_t *get_curent_proccess()
+{
+    return current_process;
+}
+
+void set_fg_process(uint32_t pid)
+{
+    cli();
+    process_t *iterator = processes;
+    while(iterator != 0)
+    {
+        if (iterator->id == pid)
+        {
+            fg_process = iterator;
+            break;
+        }
+        iterator = (process_t*)iterator->list.next;
+    }
+    sti();
+}
+
+uint32_t get_fg_process_pid()
+{
+    uint32_t pid = 0;
+    cli();
+    if (fg_process != 0)
+    {
+        pid = fg_process->id;
+    }
+    sti();
+    return pid;
+}
 
 void terminate_thread()
 {
@@ -38,7 +99,8 @@ void create_thread(void *entry_point, void* params)
     memset((void*)thread, 0, sizeof(thread_t));
     thread->state = THREAD_STATE_RUNNING;
     thread->regs.eip = (uint32_t)&thread_header;
-    thread->regs.ebp = (uint32_t)kmalloc(8192) + 8192;
+    thread->base_ebp = (uint32_t)kmalloc(8192) + 8192;
+    thread->regs.ebp = thread->base_ebp;
     thread->regs.esp = thread->regs.ebp;
     // stack pointer points on last pushed item (push instruction will preincrement it)
     *((uint32_t*)thread->regs.esp) = (uint32_t)params;
@@ -56,7 +118,14 @@ void create_thread(void *entry_point, void* params)
     sti();
 }
 
-void create_process(void *entry_point)
+void schedule_process(process_t *p)
+{
+    cli();
+    add_to_list(processes, p);
+    sti();
+}
+
+process_t *create_process(void *entry_point, void* params)
 {
     process_t *process = kmalloc(sizeof(process_t));
     memset((void*)process, 0, sizeof(process_t));
@@ -83,9 +152,12 @@ void create_process(void *entry_point)
     thread->id = process->next_thread_id++;
     thread->state = THREAD_STATE_RUNNING;
     thread->regs.eip = (uint32_t)&thread_header;
-    thread->regs.ebp = (uint32_t)kmalloc(8192) + 8192;
+    thread->base_ebp = (uint32_t)kmalloc(8192) + 8192;
+    thread->regs.ebp = thread->base_ebp;
     thread->regs.esp = thread->regs.ebp;
     // stack pointer points on last pushed item (push instruction will preincrement it)
+    *((uint32_t*)thread->regs.esp) = (uint32_t)params;
+    thread->regs.esp -= 4;
     *((uint32_t*)thread->regs.esp) = 0;
     thread->regs.esp -= 4;
     *((uint32_t*)thread->regs.esp) = (uint32_t)entry_point;
@@ -96,11 +168,8 @@ void create_process(void *entry_point)
     thread->process = process;
     process->threads = thread;
 
-    cli();
-    add_to_list(processes, process);
-    sti();
+    return process;
 }
-
 
 void init_tasking()
 {

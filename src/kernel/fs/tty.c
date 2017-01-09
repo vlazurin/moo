@@ -1,4 +1,5 @@
 #include "tty.h"
+#include "errno.h"
 #include "liballoc.h"
 #include "string.h"
 #include "stdlib.h"
@@ -8,10 +9,10 @@
 
 extern process_t *current_process;
 
-static uint32_t slave_write(vfs_file_t *file, void *buf, uint32_t size)
+static int slave_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     pty_t *pty = file->node->obj;
-
+    //debug("pty slave write\n");
     if (!(pty->flags & PTY_FLAG_SLAVE_OPEN))
     {
         debug("[pty] slave write ignored because pty is closed");
@@ -20,7 +21,7 @@ static uint32_t slave_write(vfs_file_t *file, void *buf, uint32_t size)
 
     while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_process_pid() != file->pid)
     {
-        //debug("[pty] slave write call from background process -> wait\n");
+        debug("[pty] slave write call from background process -> wait\n");
         force_task_switch();
     }
 
@@ -29,14 +30,14 @@ static uint32_t slave_write(vfs_file_t *file, void *buf, uint32_t size)
     return min;
 }
 
-static uint32_t master_write(vfs_file_t *file, void *buf, uint32_t size)
+static int master_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     char *buffer = buf;
     pty_t *pty = file->node->obj;
 
     if (!(pty->flags & PTY_FLAG_SLAVE_OPEN))
     {
-        debug("[pty] master write ignored because pty is closed");
+        //debug("[pty] master write ignored because pty is closed");
         return 0;
     }
 
@@ -84,8 +85,9 @@ static uint32_t master_write(vfs_file_t *file, void *buf, uint32_t size)
     return accepted;
 }
 
-static uint32_t master_read(vfs_file_t *file, void *buf, uint32_t size)
+static int master_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
+    //debug("read from pty master\n");
     pty_t *pty = file->node->obj;
     uint32_t count = pty->in->get(pty->out, buf, size);
     while(count == 0)
@@ -96,13 +98,13 @@ static uint32_t master_read(vfs_file_t *file, void *buf, uint32_t size)
     return count;
 }
 
-static uint32_t slave_read(vfs_file_t *file, void *buf, uint32_t size)
+static int slave_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     pty_t *pty = file->node->obj;
 
     while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_process_pid() != file->pid)
     {
-        //debug("[pty] slave read call from background process -> wait\n");
+        debug("[pty] slave read call from background process -> wait\n");
         force_task_switch();
     }
 
@@ -116,24 +118,25 @@ static uint32_t slave_read(vfs_file_t *file, void *buf, uint32_t size)
     return count;
 }
 
-static uint32_t slave_open(vfs_file_t *file, uint32_t flags)
+static int slave_open(vfs_file_t *file, uint32_t flags)
 {
     pty_t *pty = file->node->obj;
     //TODO: add mutex
-    if (pty->flags & PTY_FLAG_SLAVE_OPEN)
+    //TODO: open time counter... so 2+ app can use it
+    /*if (pty->flags & PTY_FLAG_SLAVE_OPEN)
     {
-        return VFS_LOCKED;
-    }
+        return -EBUSY;
+    }*/
 
     pty->flags |= PTY_FLAG_SLAVE_OPEN;
-    return VFS_SUCCESS;
+    return 0;
 }
 
-static int32_t slave_close(vfs_file_t *file)
+static int slave_close(vfs_file_t *file)
 {
     pty_t *pty = file->node->obj;
     pty->flags = pty->flags & ~PTY_FLAG_SLAVE_OPEN;
-    return VFS_SUCCESS;
+    return 0;
 }
 
 vfs_file_operations_t pty_slave_file_ops = {
@@ -162,6 +165,7 @@ file_descriptor_t create_pty(char *slave_name)
     pty->master->mode = S_IFCHR;
     pty->master->file_ops = &pty_master_file_ops;
     pty->master->obj = pty;
+    strcpy(pty->master->name, "pty master");
 
     if (slave_name == 0)
     {
@@ -171,11 +175,13 @@ file_descriptor_t create_pty(char *slave_name)
         for(uint32_t i = 0; i < MAX_PTY_COUNT; i++)
         {
             itoa(i, &name[pos], 10);
-            if (!exist_vfs_node(name))
-            {
-                debug("[pty] new slave name: %s\n", name);
-                create_vfs_node(name, S_IFCHR, &pty_slave_file_ops, pty, &pty->slave);
+            int err = create_vfs_node(name, S_IFCHR, &pty_slave_file_ops, pty, &pty->slave);
+            if (!err) {
                 break;
+            } else if (err == -EEXIST) {
+                continue;
+            } else {
+                return err;
             }
         }
     }
@@ -183,13 +189,11 @@ file_descriptor_t create_pty(char *slave_name)
     {
         char name[32];
         sprintf(name, "/dev/%s", slave_name);
-        if (exist_vfs_node(name))
-        {
-            kfree(pty->master);
-            kfree(pty);
-            return VFS_NODE_EXISTS;
+        int err = create_vfs_node(name, S_IFCHR, &pty_slave_file_ops, pty, &pty->slave);
+        if (err) {
+            // CLEANUP!!!
+            return err;
         }
-        create_vfs_node(name, S_IFCHR, &pty_slave_file_ops, pty, &pty->slave);
     }
 
     if (pty->slave == 0)

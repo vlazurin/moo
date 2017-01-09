@@ -3,7 +3,7 @@
 #include "debug.h"
 #include "vfs.h"
 #include "buffer.h"
-#include "interrupts.h"
+#include "irq.h"
 
 #define ESC    27
 #define BACKSPACE '\b'
@@ -92,7 +92,7 @@ KHOME, KUP, KPGUP, '-', KLEFT, '5',   KRIGHT, '+', KEND, KDOWN, KPGDN, KINS, KDE
 struct special_keys modifiers;
 buffer_t *buffer;
 
-IRQ_HANDLER(keyboard_handler, 0)
+static void keyboard_handler(struct regs *r)
 {
 	uint8_t scancode = inb(0x60);
     // Key released? Check bit 7 (0x80) of scan code for this
@@ -115,7 +115,7 @@ IRQ_HANDLER(keyboard_handler, 0)
     }
 }
 
-static uint32_t kb_read(vfs_file_t *file, void *buf, uint32_t size)
+static int kb_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     if (size == 0) {
         return 0;
@@ -138,8 +138,8 @@ static vfs_file_operations_t kb_file_ops = {
 void init_keyboard()
 {
     buffer = create_buffer(100);
-    create_vfs_device("/dev/kb", &kb_file_ops, 0);
-	set_interrupt_gate(33, keyboard_handler, 0x08, 0x8E);
+    create_vfs_node("/dev/kb", S_IFCHR, &kb_file_ops, 0, 0);
+	set_irq_handler(33, keyboard_handler);
 
 	uint8_t status;
 	for(uint32_t timeout = 100000; timeout > 0; timeout--) {

@@ -1,10 +1,11 @@
 #include "mm.h"
 #include "debug.h"
-#include "interrupts.h"
+#include "irq.h"
 #include "mutex.h"
 #include "string.h"
 #include "liballoc.h"
 #include "system.h"
+#include "tasking.h"
 
 uint8_t *bitmap = (uint8_t*) MM_BITMAP_VIRTUAL;
 page_directory_t * volatile page_directory = (page_directory_t*)PAGE_DIRECTORY_VIRTUAL;
@@ -66,13 +67,12 @@ uint32_t alloc_hardware_space_chunk(int pages)
     return addr;
 }
 
-extern uint32_t page_fault_handler_error_code; // tmp solution, IRQ_HANDLER macro sets value for us
-IRQ_HANDLER(page_fault_handler, 1)
+static void page_fault_handler(struct regs *r)
 {
     uint32_t virt;
     asm("movl %%cr2, %0" : "=r"(virt));
 
-    debug("Page Fault at addr: %h, error code: %h\n", virt, page_fault_handler_error_code);
+    debug("Page Fault at addr: %h, error code: %h\n", virt, r->error_code);
     hlt();
     /*if (!(page_fault_handler_error_code & 1)) // page not set
     {
@@ -120,9 +120,7 @@ void init_memory_manager(kernel_load_info_t *kernel_params)
         }
     }
 
-    cli();
-    set_interrupt_gate(0x0E, page_fault_handler, 0x08, 0x8E);
-    sti();
+    set_irq_handler(0x0E, page_fault_handler);
 }
 
 uint32_t alloc_physical_page()
@@ -261,4 +259,19 @@ uint32_t get_physical_address(uint32_t virtual)
 
     // TODO: not good idea to return 0, it can be correct value
     return 0;
+}
+
+void free_page(uint32_t virtual)
+{
+    uint32_t dir = (virtual >> 22);
+    uint32_t page = (virtual >> 12) & 0x03FF;
+    // Should be mutex lock before IF? Probably value in page_table can be changed between IF and calc...
+    if (page_directory->pages[dir] != 0 && (page_directory->pages[dir][page] & 3) == 3)
+    {
+        uint32_t phys = (page_directory->pages[dir][page] & 0xFFFFF000) + (virtual & 0xFFF);
+        uint32_t index = phys / 0x1000 / 8;
+        bitmap[index] &= ~(1 << (phys / 0x1000 % 8));
+        page_directory->pages[dir][page] = 2;
+        asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
+    }
 }

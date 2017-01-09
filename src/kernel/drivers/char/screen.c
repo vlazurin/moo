@@ -10,7 +10,7 @@
 uint32_t x;
 uint32_t y;
 
-static uint32_t screen_write(vfs_file_t *file, void *buf, uint32_t size)
+static int screen_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     char *str = buf;
     uint32_t count = 0;
@@ -62,5 +62,5 @@ void init_screen()
 
     x = 0;
     y = 0;
-    create_vfs_device("/dev/screen", &screen_file_ops, 0);
+    create_vfs_node("/dev/screen", S_IFCHR, &screen_file_ops, 0, 0);
 }

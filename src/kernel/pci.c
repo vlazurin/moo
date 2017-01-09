@@ -16,7 +16,7 @@ driver_map_node_t driver_map[] = {
         .device_id = 0x0,
         .class_id = 0x1,
         .subclass_id = 0x1,
-        .interface_id = 0x8a,
+        .interface_id = 0,
         .init = &init_ata
     },
     {
@@ -155,20 +155,20 @@ void init_pci_devices()
     mutex_release(&pci_devices_mutex);
 }
 
-pci_device_t* get_pci_device_by_class(uint8_t class)
+pci_device_t* get_pci_device_by_class(uint8_t class, pci_device_t* curr)
 {
     mutex_lock(&pci_devices_mutex);
     pci_device_t *iterator = pci_devices;
-    while(iterator != 0)
-    {
-        if (iterator->class == class)
-        {
+    if (curr != NULL) {
+        iterator = (pci_device_t*)curr->list.next;
+    }
+    while(iterator != NULL) {
+        if (iterator->class == class) {
             mutex_release(&pci_devices_mutex);
             return iterator;
         }
         iterator = (pci_device_t*)iterator->list.next;
     }
-
     mutex_release(&pci_devices_mutex);
-    return 0;
+    return NULL;
 }

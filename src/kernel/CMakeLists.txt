@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 
 set(CMAKE_ASM_FLAGS "-m32 -march=i686 -ffreestanding -Wall -Werror")
-set(CMAKE_C_FLAGS "-O0 -m32 -march=i686 -ffreestanding -Wall -fno-common -Werror -DDEBUG")
+set(CMAKE_C_FLAGS "-O0 -m32 -march=i686 -ffreestanding -Wall -fno-common -Werror -DRUN_TESTS")
 set(CMAKE_EXE_LINKER_FLAGS "-T${CMAKE_SOURCE_DIR}/kernel.ld -nostdlib -Wl,-Map=mapfile")
 
 include_directories(../shared/include)
@@ -12,7 +12,6 @@ project(kernel C ASM)
 set(SOURCE_FILES
         head.s
         main.c
-        interrupts.c
         mm.c
         liballoc.c
         mutex.c
@@ -20,12 +19,16 @@ set(SOURCE_FILES
         pit.c
         tasking.c
         process.s
+        log.c
         timer.c
         io.c
+        irq.c
+        irq.S
         ./support/list.c
         ./support/ring.c
         ./support/buffer.c
         pci.c
+        task.S
         elf.c
         libc.c
         process.c
@@ -34,6 +37,7 @@ set(SOURCE_FILES
         ./fs/tty.c
         ./fs/vfs.c
         ./fs/tempfs.c
+        ./fs/fat16fs.c
         ./fs/procfs.c
         ./network/network.c
         ./network/arp.c

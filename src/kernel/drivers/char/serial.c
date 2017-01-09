@@ -3,7 +3,7 @@
 #include "port.h"
 #include "debug.h"
 #include "buffer.h"
-#include "interrupts.h"
+#include "irq.h"
 
 #define SERIAL_PORT_1 0x3F8
 #define SERIAL_PORT_2 0x2F8
@@ -26,7 +26,7 @@ static void setup_serial(uint32_t port)
     outb(port + 1, 0x01);  // Enable interrupts
 }
 
-static uint32_t serial_write(vfs_file_t *file, void *buf, uint32_t size)
+static int serial_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     uint32_t index = (uint32_t)file->node->obj;
     uint32_t done = 0;
@@ -42,7 +42,7 @@ static uint32_t serial_write(vfs_file_t *file, void *buf, uint32_t size)
     return done;
 }
 
-static uint32_t serial_read(vfs_file_t *file, void *buf, uint32_t size)
+static int serial_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     uint32_t index = (uint32_t)file->node->obj;
 
@@ -59,11 +59,11 @@ static uint32_t serial_read(vfs_file_t *file, void *buf, uint32_t size)
     return done;
 }
 
-static uint32_t serial_open(vfs_file_t *file, uint32_t flags)
+static int serial_open(vfs_file_t *file, uint32_t flags)
 {
     uint32_t index = (uint32_t)file->node->obj;
     buffers[index]->clear(buffers[index]);
-    return VFS_SUCCESS;
+    return 0;
 }
 
 static void read_serial_intr(uint32_t index)
@@ -78,7 +78,7 @@ static void read_serial_intr(uint32_t index)
     buffers[index]->mutex = b;
 }
 
-IRQ_HANDLER(serial_1_3_handler, 0)
+static void serial_1_3_handler(struct regs *r)
 {
     uint32_t index = 2;
 	if (inb(SERIAL_PORT_1 + 1) & 0x01)
@@ -89,7 +89,7 @@ IRQ_HANDLER(serial_1_3_handler, 0)
     read_serial_intr(index);
 }
 
-IRQ_HANDLER(serial_2_4_handler, 0)
+static void serial_2_4_handler(struct regs *r)
 {
     uint32_t index = 3;
 	if (inb(SERIAL_PORT_2 + 1) & 0x01)
@@ -109,19 +109,19 @@ static vfs_file_operations_t serial_file_ops = {
 
 void init_serial()
 {
-    set_interrupt_gate(36, serial_1_3_handler, 0x08, 0x8E);
-    set_interrupt_gate(35, serial_2_4_handler, 0x08, 0x8E);
+    set_irq_handler(36, serial_1_3_handler);
+    set_irq_handler(35, serial_2_4_handler);
 
     setup_serial(SERIAL_PORT_1);
     buffers[0] = create_buffer(128);
-    create_vfs_device("/dev/ttyS0", &serial_file_ops, (void*)0);
+    create_vfs_node("/dev/ttyS0", S_IFCHR, &serial_file_ops, (void*)0, 0);
     setup_serial(SERIAL_PORT_2);
     buffers[1] = create_buffer(128);
-    create_vfs_device("/dev/ttyS1", &serial_file_ops, (void*)1);
+    create_vfs_node("/dev/ttyS1", S_IFCHR, &serial_file_ops, (void*)1, 0);
     setup_serial(SERIAL_PORT_3);
     buffers[2] = create_buffer(128);
-    create_vfs_device("/dev/ttyS2", &serial_file_ops, (void*)2);
+    create_vfs_node("/dev/ttyS2", S_IFCHR, &serial_file_ops, (void*)2, 0);
     setup_serial(SERIAL_PORT_4);
     buffers[3] = create_buffer(128);
-    create_vfs_device("/dev/ttyS3", &serial_file_ops, (void*)3);
+    create_vfs_node("/dev/ttyS3", S_IFCHR, &serial_file_ops, (void*)3, 0);
 }

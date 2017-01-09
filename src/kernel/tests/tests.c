@@ -97,7 +97,7 @@ void test_alloc_physical_range()
     bitmap = new_bitmap;
 
     mark_memory_region(0, 0x9000, 1);
-    uint32_t addr = alloc_physical_range(3);
+    uint32_t __attribute__((unused)) addr = alloc_physical_range(3);
     assert(addr == 0x9000);
     addr = alloc_physical_range(1);
     assert(addr == 0xC000);
@@ -119,7 +119,7 @@ void test_get_mac_from_cache()
 
     arp_cache = 0;
 
-    uint8_t result = get_mac_from_cache(&ip, &addr);
+    uint8_t __attribute__((unused)) result = get_mac_from_cache(&ip, &addr);
     assert(result == 0);
 
     arp_entry_t entry;
@@ -157,7 +157,7 @@ void test_add_mac_to_arp_cache()
     arp_cache = 0;
 
     add_mac_to_arp_cache(&ip, &mac);
-    eth_addr_t out = ETH_ADDR_EMPTY;
+    eth_addr_t __attribute__((unused)) out = ETH_ADDR_EMPTY;
     assert(get_mac_from_cache(&ip, &out));
     assert(out.b[0] == 19);
     assert(out.b[5] == 17);

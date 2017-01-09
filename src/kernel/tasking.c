@@ -1,11 +1,11 @@
 #include "tasking.h"
-#include "interrupts.h"
 #include "liballoc.h"
 #include "timer.h"
 #include "debug.h"
 #include "string.h"
 #include "mutex.h"
 #include "pit.h"
+#include "irq.h"
 #include "mm.h"
 
 uint8_t volatile task_switch_required = 0;
@@ -14,28 +14,31 @@ process_t *processes;
 process_t *current_process = 0;
 process_t *fg_process = 0;
 thread_t *current_thread = 0;
-uint32_t next_process_id = 0;
+uint32_t next_pid = 0;
+
+// process 0 page directory
 extern page_directory_t *page_directory;
+extern void return_to_userspace();
 
-int fork()
+int fork(struct regs *r)
 {
-    int parent_pid = get_pid();
+    return 0;
     process_t *p = create_process(0, 0);
+    p->page_dir = current_process->page_dir;
 
-    memcpy((void*)p->threads[0].base_ebp - 8192, (void*)current_thread->base_ebp - 8192, 8192);
-
+    uint32_t stack_size = current_thread->base_ebp - (uint32_t)r;
+    r->eax = 0;
+    memcpy((void*)p->threads[0].base_ebp - stack_size, (uint8_t*)r, stack_size);
+    p->threads[0].regs.ebp = p->threads[0].base_ebp;
+    p->threads[0].regs.esp = p->threads[0].base_ebp - stack_size;
+    p->threads[0].regs.eip = (uint32_t)&return_to_userspace;
+    //TODO: change eax, because of fork return value
+    debug("eax %h, ebx %h, eip %h\n", r->eax, r->ebx, r->eip);
     cli();
     add_to_list(processes, p);
-    p->threads[0].regs.eip = (uint32_t)__builtin_return_address(0);
-    p->threads[0].regs.ebp = (uint32_t)__builtin_frame_address(0) + 4;
-    p->threads[0].regs.esp = p->threads[0].regs.ebp;
     sti();
-    if (get_pid() != parent_pid) {
-        debug("child returns 0, to %h, %i\n", __builtin_return_address(0), parent_pid);
-        return 0;
-    }
-    debug("parent returns %i, to %h\n", get_pid(), __builtin_return_address(0));
-    return parent_pid;
+    while(1){}
+    return get_pid();
 }
 
 uint32_t get_pid()
@@ -130,7 +133,7 @@ process_t *create_process(void *entry_point, void* params)
     process_t *process = kmalloc(sizeof(process_t));
     memset((void*)process, 0, sizeof(process_t));
 
-    process->id = __sync_fetch_and_add(&next_process_id, 1);
+    process->id = __sync_fetch_and_add(&next_pid, 1);
     process->page_dir_base = kmalloc(sizeof(page_directory_t) + 0x1000);
     process->page_dir = (void*)PAGE_ALIGN((uint32_t)process->page_dir_base);
 
@@ -145,6 +148,7 @@ process_t *create_process(void *entry_point, void* params)
         process->page_dir->pages[i] = page_directory->pages[i];
     }
 
+    // stupid hack
     process->page_dir->directory[0] = page_directory->directory[0];
 
     thread_t *thread = kmalloc(sizeof(thread_t));
@@ -176,7 +180,7 @@ void init_tasking()
     process_t *process = kmalloc(sizeof(process_t));
     memset((void*)process, 0, sizeof(process_t));
     process->next_thread_id = 1;
-    process->id = __sync_fetch_and_add(&next_process_id, 1);
+    process->id = __sync_fetch_and_add(&next_pid, 1);
     process->page_dir_base = (void*)PAGE_DIRECTORY_VIRTUAL;
     process->page_dir = (page_directory_t*)PAGE_DIRECTORY_VIRTUAL;
 
@@ -260,14 +264,14 @@ void switch_task()
     asm("mov %ebp, (%ecx)");
     asm("mov %esp, 4(%ecx)");
     asm("call read_eip");
-    asm("cmp $0xFFFFFFFF, %eax");
+    asm("cmp $0xFFFFFFAC, %eax");
     asm("je warped_to_task");
     asm("mov %eax, 8(%ecx)");
 
     asm("mov (%edx), %ebp");
     asm("mov 4(%edx), %esp");
     asm("mov 8(%edx), %ecx");
-    asm("mov $0xFFFFFFFF, %eax");
+    asm("mov $0xFFFFFFAC, %eax");
     asm("jmp *%ecx");
 
     asm("warped_to_task:");

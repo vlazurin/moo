@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 
 void *memset(void *str, int c, size_t n);
 unsigned int strlen(const char *str);

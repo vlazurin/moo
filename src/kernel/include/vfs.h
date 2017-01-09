@@ -3,24 +3,17 @@
 
 #include <stdint.h>
 #include <list.h>
+#include <ata.h>
 
 #define VFS_BLOCK_SIZE 512
 
 #define VFS_NODE_NAME_LENGTH 100
-#define MAX_OPENED_FILES 10
+#define MAX_PATH_DEPTH 512
+#define MAX_PATH_LENGTH 2048
+#define MAX_OPENED_FILES 100
 
 #define VFS_CURRENT_DIR "."
 #define VFS_PARENT_DIR ".."
-
-#define VFS_SUCCESS 0
-#define VFS_BAD_PATH (-1)
-#define VFS_NOT_FOUND (-2)
-#define VFS_NODE_EXISTS (-3)
-#define VFS_BAD_FS (-4)
-#define VFS_NOT_INITIALIZED (-5)
-#define VFS_FS_MAX_COUNT_REACHED (-6)
-#define VFS_LOCKED (-7)
-#define VFS_READ_NOT_POSSIBLE (-8)
 
 typedef struct vfs_node vfs_node_t;
 typedef int32_t file_descriptor_t;
@@ -61,8 +54,6 @@ struct timespec {
 #define F_GETFL 3
 #define F_SETFL 4
 
-#define ENOENT 2
-
 struct stat {
     dev_t st_dev;
     ino_t st_ino;
@@ -84,26 +75,37 @@ typedef struct dirent
     char name[VFS_NODE_NAME_LENGTH];
 } dirent_t;
 
+struct vfs_super {
+    struct ata_device *dev;
+    struct vfs_super_operations *ops;
+    void *obj;
+};
+
 typedef struct vfs_fs_operations
 {
-    vfs_node_t* (*create_root)();
+    struct vfs_super* (*read_super)(struct ata_device*);
 } vfs_fs_operations_t;
+
+struct vfs_super_operations
+{
+    struct vfs_node* (*spawn)(struct vfs_super*, char*, mode_t);
+};
 
 struct vfs_node_operations
 {
     uint32_t (*read_dir)(vfs_node_t*, void*, uint32_t);
     uint8_t (*exist)(vfs_node_t*, char*);
-    vfs_node_t* (*get_node)(vfs_node_t*, char*);
-    uint8_t (*create_node)(vfs_node_t*, char*, mode_t, vfs_file_operations_t*, void*, vfs_node_t**);
+    vfs_node_t* (*lookup)(vfs_node_t*, char*);
+    int (*create_node)(vfs_node_t*, char*, mode_t, struct vfs_file_operations*, void*, vfs_node_t**);
     int (*stat)(vfs_node_t *, char *, struct stat *);
 };
 
 struct vfs_file_operations
 {
-    uint32_t (*open)(vfs_file_t*, uint32_t);
-    uint32_t (*read)(vfs_file_t*, void*, uint32_t);
-    uint32_t (*write)(vfs_file_t*, void*, uint32_t);
-    int32_t (*close)(vfs_file_t*);
+    int (*open)(vfs_file_t*, uint32_t);
+    int (*read)(vfs_file_t*, void*, uint32_t, uint32_t*);
+    int (*write)(vfs_file_t*, void*, uint32_t, uint32_t*);
+    int (*close)(vfs_file_t*);
 };
 
 struct vfs_node
@@ -114,18 +116,19 @@ struct vfs_node
     uint32_t size;
     mode_t mode;
     void *obj;
+    uint8_t is_loaded;
+    struct vfs_super *super;
     vfs_node_operations_t *ops;
     vfs_file_operations_t *file_ops;
 };
 
-typedef struct vfs_type
+struct vfs_fs_type
 {
     char name[100];
     vfs_fs_operations_t *ops;
-} vfs_type_t;
+};
 
 #define FD_CLOEXEC 1
-
 #define F_DUPFD_CLOEXEC 14
 
 struct vfs_file
@@ -135,22 +138,22 @@ struct vfs_file
     vfs_file_operations_t *ops;
     uint32_t pid;
     int flags;
+    uint32_t pos;
 };
 
-int register_fs(vfs_type_t *fs);
-int mount_fs(char *path, char *fs_name);
+int register_fs(struct vfs_fs_type *fs);
+int mount_fs(char *path, char *fs_name, struct ata_device *dev);
 int mkdir(char *path);
-// probably obj must be int, not a pointer
-int create_vfs_device(char *path, vfs_file_operations_t *file_ops, void *obj);
 file_descriptor_t sys_open(char *path);
-int read_file(file_descriptor_t fd, void *buf, uint32_t size);
-uint32_t sys_write(file_descriptor_t fd, void *buf, uint32_t size);
-int32_t sys_close(file_descriptor_t fd);
-int exist_vfs_node(char *path);
+int sys_read(file_descriptor_t fd, void *buf, uint32_t size);
+int sys_write(file_descriptor_t fd, void *buf, uint32_t size);
+int sys_close(file_descriptor_t fd);
 int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, void *obj, vfs_node_t **out);
 int stat_fs(char *path, struct stat *buf);
 int fstat(file_descriptor_t fd, struct stat *buf);
 // TODO: move me!!!
 char *strdup(char *str);
 int fcntl(int fd, int cmd, int arg);
+
+void print_vfs_tree(struct vfs_node *node, uint32_t level);
 #endif

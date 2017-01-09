@@ -15,7 +15,7 @@ uint32_t get_random()
     return result;
 }
 
-uint32_t urandom_read(vfs_file_t *file, void *buf, uint32_t size)
+int urandom_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     uint32_t done = 0;
     uint8_t shift = 0;
@@ -46,5 +46,5 @@ vfs_file_operations_t urand_file_ops = {
 
 void init_urandom()
 {
-    create_vfs_device("/dev/urandom", &urand_file_ops, 0);
+    create_vfs_node("/dev/urandom", S_IFCHR, &urand_file_ops, 0, 0);
 }

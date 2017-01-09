@@ -4,21 +4,14 @@
 #include <stdint.h>
 #include "list.h"
 #include "system.h"
+#include "irq.h"
 #include "vfs.h"
 
 typedef struct registers
 {
-    uint32_t eax;
-    uint32_t ebx;
-    uint32_t ecx;
-    uint32_t edx;
-    uint32_t esi;
-    uint32_t edi;
-    uint32_t esp;
     uint32_t ebp;
+    uint32_t esp;
     uint32_t eip;
-    uint32_t eflags;
-    uint32_t cr3;
 } __attribute__((packed)) volatile registers_t;
 
 enum
@@ -63,6 +56,6 @@ uint32_t get_fg_process_pid();
 void set_fg_process(uint32_t pid);
 uint32_t get_pid();
 process_t *get_curent_proccess();
-int fork();
+int fork(struct regs *r);
 
 #endif

@@ -1,9 +1,9 @@
 #include <stdbool.h>
+#include "irq.h"
 #include "system.h"
 #include "debug.h"
 #include "string.h"
 #include "screen.h"
-#include "interrupts.h"
 #include "mm.h"
 #include "pit.h"
 #include "pci.h"
@@ -16,6 +16,7 @@
 #include "tcp.h"
 #include "vfs.h"
 #include "tempfs.h"
+#include "fat16fs.h"
 #include "procfs.h"
 #include "elf.h"
 #include "tty.h"
@@ -47,10 +48,10 @@ void main()
 
     memset(&bss_start, 0, bss_size);
 
-    init_interrupts();
+    init_irq();
     init_memory_manager(kernel_params);
 
-    #ifdef DEBUG
+    #ifdef RUN_TESTS
     run_tests();
     #endif
 
@@ -65,7 +66,8 @@ void main()
     init_timer();
 
     init_tempfs();
-    uint8_t error = mount_fs("/", "tempfs");
+    uint8_t error = mount_fs("/", "tempfs", NULL);
+
     if (error)
     {
         debug("[kernel] Can't mount root partition, error code: %i\n", error);
@@ -73,21 +75,25 @@ void main()
     }
     mkdir("/dev");
     mkdir("/home");
+    mkdir("/mount");
     mkdir("/home/moo");
+
     init_serial();
+    init_urandom();
+    init_null();
 
     init_pci_devices();
+    init_fat16fs();
     init_screen();
     init_keyboard();
-
-    pci_device_t *dev = get_pci_device_by_class(PCI_CLASS_NETWORK_CONTROLLER);
+    /*pci_device_t *dev = get_pci_device_by_class(PCI_CLASS_NETWORK_CONTROLLER);
     network_device_t *net_dev = (network_device_t*)dev->logical_driver;
     if (net_dev != 0)
     {
         init_udp_protocol();
         init_tcp_protocol();
         net_dev->enable(net_dev);
-        /*uint8_t result = configure_dhcp(net_dev);
+        uint8_t result = configure_dhcp(net_dev);
         if (result != DHCP_OK)
         {
             debug("[network] DHCP configuration failed, status: %i\n", result);
@@ -103,10 +109,12 @@ void main()
             ip4_to_str(&net_dev->router, buf);
             debug("[network] default router: %s\n", buf);
             debug("[network] DHCP leasing time isn't supported!\n");
-        }*/
-    }
+        }
+    }*/
     setup_syscalls();
     init_io();
+    print_vfs_tree(NULL, 0);
+
     exec("/random_name");
     debug("[kernel] end of kernel main\n");
 

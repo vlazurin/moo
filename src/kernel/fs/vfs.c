@@ -58,7 +58,7 @@ static struct vfs_fs_type *get_fs(char *name)
  */
 static struct vfs_node *lookup(char *path)
 {
-    debug("[vfs] (pid: %i) lookup (%s)\n", get_pid(), path);
+    //debug("[vfs] (pid: %i) lookup (%s)\n", get_pid(), path);
     char *token = strtok_r(path, "/", &path);
     struct vfs_node *node = vfs_root;
     while (token != NULL && strlen(token) > 0 && node != NULL) {
@@ -305,12 +305,74 @@ int fstat(file_descriptor_t fd, struct stat *buf)
 
 int fcntl(int fd, int cmd, int arg)
 {
-    return 0;
+    if (fd >= MAX_OPENED_FILES || fd < 0 || get_curent_proccess()->files[fd] == NULL) {
+        return -EBADF;
+    }
+
+    switch (cmd) {
+        case F_DUPFD:
+            for(uint32_t i = cmd; i < MAX_OPENED_FILES; i++) {
+                if (get_curent_proccess()->files[i] == NULL) {
+                    get_curent_proccess()->files[i] = get_curent_proccess()->files[fd];
+                    return i;
+                }
+            }
+            return -EMFILE;
+        break;
+        case F_DUPFD_CLOEXEC:
+            for(uint32_t i = cmd; i < MAX_OPENED_FILES; i++) {
+                if (get_curent_proccess()->files[i] == NULL) {
+                    get_curent_proccess()->files[i] = get_curent_proccess()->files[fd];
+                    get_curent_proccess()->files[i]->flags |= FD_CLOEXEC;
+                    return i;
+                }
+            }
+        break;
+        case F_GETFD:
+            return get_curent_proccess()->files[fd]->flags;
+        break;
+        case F_SETFD:
+            return get_curent_proccess()->files[fd]->flags = arg;
+        break;
+        default:
+            debug("unknown fcntl cmd %i\n", cmd);
+            return -EINVAL;
+        break;
+    }
+
+    return -EINVAL;
 }
 
 int stat_fs(char *path, struct stat *buf)
 {
-    return 0;
+    if (vfs_root == NULL) {
+        return -EFAULT;
+    }
+
+    int err = 0;
+    char *canonical = kmalloc(MAX_PATH_LENGTH);
+    err = canonicalize_path(path, canonical, MAX_PATH_LENGTH);
+    if (err) {
+        goto cleanup;
+    }
+
+    mutex_lock(&vfs_mutex);
+    struct vfs_node *node = lookup(canonical);
+    if (node == NULL) {
+        err = -ENOENT;
+        goto mutex_cleanup;
+    }
+    memset(buf, 0, sizeof(struct stat));
+    buf->st_blksize = VFS_BLOCK_SIZE;
+    buf->st_blocks = ALIGN(node->size, VFS_BLOCK_SIZE) / VFS_BLOCK_SIZE;
+    buf->st_size = node->size;
+    buf->st_mode = node->mode;
+
+mutex_cleanup:
+    mutex_release(&vfs_mutex);
+cleanup:
+    kfree(canonical);
+    return err;
 }
 
 int mount_fs(char *path, char *fs_name, struct ata_device *dev)

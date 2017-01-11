@@ -10,7 +10,7 @@
 #define VFS_NODE_NAME_LENGTH 100
 #define MAX_PATH_DEPTH 512
 #define MAX_PATH_LENGTH 2048
-#define MAX_OPENED_FILES 100
+#define MAX_OPENED_FILES 1024
 
 #define VFS_CURRENT_DIR "."
 #define VFS_PARENT_DIR ".."
@@ -78,7 +78,7 @@ typedef struct dirent
 struct vfs_super {
     struct ata_device *dev;
     struct vfs_super_operations *ops;
-    void *obj;
+    void *private;
 };
 
 typedef struct vfs_fs_operations
@@ -94,7 +94,6 @@ struct vfs_super_operations
 struct vfs_node_operations
 {
     uint32_t (*read_dir)(vfs_node_t*, void*, uint32_t);
-    uint8_t (*exist)(vfs_node_t*, char*);
     vfs_node_t* (*lookup)(vfs_node_t*, char*);
     int (*create_node)(vfs_node_t*, char*, mode_t, struct vfs_file_operations*, void*, vfs_node_t**);
     int (*stat)(vfs_node_t *, char *, struct stat *);
@@ -151,8 +150,6 @@ int sys_close(file_descriptor_t fd);
 int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, void *obj, vfs_node_t **out);
 int stat_fs(char *path, struct stat *buf);
 int fstat(file_descriptor_t fd, struct stat *buf);
-// TODO: move me!!!
-char *strdup(char *str);
 int fcntl(int fd, int cmd, int arg);
 
 void print_vfs_tree(struct vfs_node *node, uint32_t level);

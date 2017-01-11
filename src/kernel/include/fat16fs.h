@@ -1,8 +1,8 @@
-#ifndef H_PROCFS
-#define H_PROCFS
+#ifndef H_FAT16FS
+#define H_FAT16FS
 
 #define ROOT_DIRECTORY_ENTRY_COUNT 512
-#define ROOT_DIRECTORY_ENTRY_SIZE 32
+#define FAT16_ENTRY_SIZE 32
 #define ROOT_DIRECTORY_SIZE 0x4000
 
 struct boot_sector

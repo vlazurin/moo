@@ -72,7 +72,7 @@ static void page_fault_handler(struct regs *r)
     uint32_t virt;
     asm("movl %%cr2, %0" : "=r"(virt));
 
-    debug("Page Fault at addr: %h, error code: %h\n", virt, r->error_code);
+    debug("Page Fault at addr: %h, error code: %h, eip: %h\n", virt, r->error_code, r->eip);
     hlt();
     /*if (!(page_fault_handler_error_code & 1)) // page not set
     {
@@ -232,8 +232,9 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
     page_directory->pages[dir][page] = physical | 3;
     asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
 
+    // MUST IGNORE CALLS FOR KERNEL MEMORY, fix me
     process_t *p = get_curent_proccess();
-    if ((uint32_t)p->brk < virtual)
+    if ((uint32_t)p->brk < virtual && virtual < 0xE1C00000)
     {
         p->brk = (void*)virtual + 0x1000;
     }

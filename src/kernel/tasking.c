@@ -160,9 +160,8 @@ process_t *create_process(void *entry_point, void* params)
     thread->regs.ebp = thread->base_ebp;
     thread->regs.esp = thread->regs.ebp;
     // stack pointer points on last pushed item (push instruction will preincrement it)
+
     *((uint32_t*)thread->regs.esp) = (uint32_t)params;
-    thread->regs.esp -= 4;
-    *((uint32_t*)thread->regs.esp) = 0;
     thread->regs.esp -= 4;
     *((uint32_t*)thread->regs.esp) = (uint32_t)entry_point;
     thread->regs.esp -= 4;

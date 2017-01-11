@@ -12,10 +12,15 @@ static int syscall_write(file_descriptor_t fd, char *buf, uint32_t len)
     return len;
 }
 
-static int syscall_read(file_descriptor_t fd, char *buf, uint32_t len)
+static int syscall_read(file_descriptor_t fd, char *buf, int len)
 {
     debug("[syscall] read fd %i\n", fd);
     len = sys_read(fd, buf, len);
+    if (len < 0) {
+        debug("read return -1\n");
+        return -1;
+    }
+    debug("read return %i, string: %s\n", len, buf);
     return len;
 }
 
@@ -37,6 +42,12 @@ static int syscall_mkdir(char *path, mode_t mode)
     return mkdir("/test");
 }
 
+static int syscall_open(char *path, int flags, mode_t mode)
+{
+    debug("[syscall] open : %s %i %i\n", path, flags, mode);
+    return sys_open(path);
+}
+
 static int syscall_getgid()
 {
     debug("[syscall] getgid\n");
@@ -45,7 +56,7 @@ static int syscall_getgid()
 
 static int syscall_brk(uint32_t addr)
 {
-    debug("[syscall] brk\n");
+    debug("[syscall] brk %h\n", addr);
     if (addr == 0 || (uint32_t)get_curent_proccess()->brk > addr)
     {
         return (uint32_t)get_curent_proccess()->brk;
@@ -75,11 +86,11 @@ static int syscall_fork(struct regs *r)
     debug("fork result: %i\n", result);
     return result;
 }
-extern void execve();
+extern void execve(char *path, char **argv);
 static int syscall_execve(struct regs *r)
 {
-    debug("execve: %s\n", (void*)r->ebx);
-    execve();
+    debug("execve: %s %h\n", (char*)r->ebx, (void*)r->ecx);
+    execve((void*)r->ebx, (void*)r->ecx);
     return 0;
 }
 
@@ -94,6 +105,9 @@ void handle_syscall_routine(struct regs *r)
         break;
         case 0x04:
             result = syscall_write(r->ebx, (char*)r->ecx, r->edx);
+        break;
+        case 0x05:
+            result = syscall_open((char*)r->ebx, r->ecx, r->edx);
         break;
         case 0x3:
             result = syscall_read(r->ebx, (char*)r->ecx, r->edx);

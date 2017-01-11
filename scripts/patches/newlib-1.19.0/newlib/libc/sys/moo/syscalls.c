@@ -128,15 +128,15 @@ int sigsuspend(const sigset_t *mask)
 
 int tcsetpgrp(int fd, pid_t pgrp)
 {
-    char *m = "tcsetpgrp!\n";
-    write(1, m, strlen(m));
+    //char *m = "tcsetpgrp!\n";
+    //write(1, m, strlen(m));
     return 0;
 }
 
 pid_t getpgrp(pid_t pid)
 {
-    char *m = "getpgrp!\n";
-    write(1, m, strlen(m));
+    //char *m = "getpgrp!\n";
+    //write(1, m, strlen(m));
     return 0;
 }
 
@@ -184,8 +184,8 @@ char *getcwd(char *buf, size_t size)
 
 int fcntl(int fildes, int cmd, ...)
 {
-    char *m = "fcntl!\n";
-    write(1, m, strlen(m));
+    //char *m = "fcntl!\n";
+    //write(1, m, strlen(m));
     return 0;
 }
 
@@ -198,8 +198,8 @@ struct DIR *opendir(const char *name)
 
 pid_t tcgetpgrp(int fd)
 {
-    char *m = "tcgetpgrp!\n";
-    write(1, m, strlen(m));
+    //char *m = "tcgetpgrp!\n";
+    //write(1, m, strlen(m));
     return 0;
 }
 
@@ -212,8 +212,8 @@ int killpg(int pgrp, int sig)
 
 pid_t wait3(int *status, int options, struct rusage *rusage)
 {
-    char *m = "wait3!\n";
-    write(1, m, strlen(m));
+    //char *m = "wait3!\n";
+    //write(1, m, strlen(m));
     return 0;
 }
 
@@ -233,15 +233,15 @@ struct dirent *readdir(DIR *dirp)
 
 int setpgid()
 {
-    char *m = "setpgid!\n";
-    write(1, m, strlen(m));
+    //char *m = "setpgid!\n";
+    //write(1, m, strlen(m));
     return 0;
 }
 
 int getuid()
 {
-    char *m = "getuid!\n";
-    write(1, m, strlen(m));
+    //char *m = "getuid!\n";
+    //write(1, m, strlen(m));
     return 0;
 }
 
@@ -273,9 +273,9 @@ int close(int file)
 
 extern char **environ; /* pointer to array of char * strings that define the current environment variables */
 
-int execve(char *name, char **argv, char **env)
+int execve(const char *name, char **argv, char **envp)
 {
-    return syscall_execve(name, argv, env);
+	return syscall_execve((char*)name, argv, envp);
 }
 
 int fork()

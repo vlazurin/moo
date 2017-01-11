@@ -11,7 +11,6 @@ vfs_fs_operations_t procfs_ops = {
 };
 
 vfs_node_operations_t procfs_root_node_ops = {
-    .exist = 0,
     .create_node = 0,
     .lookup = &lookup
 };

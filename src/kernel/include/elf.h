@@ -1,14 +1,7 @@
-#ifndef H_IDE
-#define H_IDE
+#ifndef H_ELF
+#define H_ELF
 
 #include <stdint.h>
-
-enum
-{
-    ELF_SUCCESS = 0,
-    ELF_WRONG_FORMAT,
-    ELF_WRONG_TYPE
-};
 
 typedef struct elf_header
 {
@@ -64,6 +57,6 @@ typedef struct elf_symbol
     uint16_t shndx;
 } __attribute__((packed)) elf_symbol_t;
 
-uint8_t load_elf(char* filename, void **entry_point);
+int load_elf(char* filename, void **entry_point);
 
 #endif

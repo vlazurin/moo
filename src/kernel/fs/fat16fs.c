@@ -12,13 +12,11 @@
 static struct vfs_super* read_super(struct ata_device *dev);
 static struct vfs_node *spawn_node(struct vfs_super *super, char *name, mode_t mode);
 static int create_node(vfs_node_t *node, char *path, mode_t mode, struct vfs_file_operations *file_ops, void *obj, vfs_node_t **out);
-static uint8_t exist(vfs_node_t *node, char *path);
 static vfs_node_t* lookup(vfs_node_t *node, char *name);
-static int stat_node(vfs_node_t *node, char *path, struct stat *buf);
 static int read(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos);
 
 struct fat16_super_private {
-    void *bs;
+    struct boot_sector bs;
     uint16_t *fat;
 };
 
@@ -27,10 +25,8 @@ vfs_fs_operations_t fat16fs_ops = {
 };
 
 vfs_node_operations_t fat16fs_node_ops = {
-    .exist = &exist,
     .create_node = &create_node,
     .lookup = &lookup,
-    .stat = &stat_node
 };
 
 struct vfs_super_operations fat16fs_super_ops = {
@@ -41,55 +37,60 @@ struct vfs_file_operations fat16fs_file_ops = {
     .read = &read
 };
 
+static uint16_t cluster_to_sector(struct boot_sector *bs, uint16_t cluster)
+{
+    uint16_t root_directory_size = ALIGN(bs->root_entries_count * FAT16_ENTRY_SIZE, SECTOR_SIZE) / SECTOR_SIZE;
+    uint16_t first_data_sector = bs->reserved_sectors + bs->fat_numbers * bs->sectors_per_fat + root_directory_size;
+    return ((cluster - 2) * bs->sectors_per_cluster) + first_data_sector;
+}
+
 static int read(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos)
 {
-    if (*pos > file->node->size) {
+    if (*pos >= file->node->size) {
+        debug("fat 16 read: EINVAL, pos %i\n", *pos);
         return -EINVAL;
     }
-    struct boot_sector *bs = ((struct fat16_super_private*)file->node->super->obj)->bs;
-    uint32_t start_cluster = *pos / (SECTOR_SIZE * bs->sectors_per_cluster);
-    uint32_t amount = ALIGN(ALIGN(size, SECTOR_SIZE) / SECTOR_SIZE, bs->sectors_per_cluster) / bs->sectors_per_cluster;
-    debug("read %i, %i\n", start_cluster, amount);
-    uint8_t *tmp_buf = kmalloc(amount * bs->sectors_per_cluster * SECTOR_SIZE);
-    uint32_t cluster = (uint32_t)file->node->obj;
-    debug("cluster %i\n", cluster);
-    uint8_t *cur = tmp_buf;
-    uint32_t done = 0;
-    while(done < amount) {
+    struct fat16_super_private *private = file->node->super->private;
+
+    uint32_t bytes_in_cluster = SECTOR_SIZE * private->bs.sectors_per_cluster;
+    uint32_t requested_cluster = *pos / bytes_in_cluster;
+    uint8_t *read_buf = kmalloc(bytes_in_cluster);
+    struct ata_device *dev = file->node->super->dev;
+    uint32_t readed = 0;
+
+    uint16_t skipped_clusters = 0;
+    uint32_t pos_in_cluster = *pos % bytes_in_cluster;
+    uint16_t cluster = (uint16_t)(uint32_t)file->node->obj;
+    while(readed < size && cluster <= 0xFFF8) {
         if (cluster == 0x0 || cluster == 0x1 || (cluster >= 0xFFF0 && cluster <= 0xFFF6) || cluster == 0xFFF7)
         {
             debug("wrong FAT16 cluster %h\n", cluster);
             hlt();
         }
 
-        // end of file
-        if (cluster > 0xFFF8)
-        {
-            break;
+        if (skipped_clusters < requested_cluster) {
+            cluster = private->fat[cluster];
+            skipped_clusters++;
+            continue;
         }
-        uint16_t root_directory_size = bs->root_entries_count * ROOT_DIRECTORY_ENTRY_SIZE;
-        if (root_directory_size % bs->bytes_per_sector > 0)
-        {
-            root_directory_size = root_directory_size / bs->bytes_per_sector + 1;
-        }
-        else
-        {
-            root_directory_size = root_directory_size / bs->bytes_per_sector;
-        }
-        uint16_t first_data_sector = bs->reserved_sectors + bs->fat_numbers * bs->sectors_per_fat + root_directory_size;
-        uint16_t file_sector = ((cluster - 2) * bs->sectors_per_cluster) + first_data_sector;
-        int err = file->node->super->dev->read(file->node->super->dev, cur, file_sector, bs->sectors_per_cluster);
-        debug("read res %i\n", err);
-        debug("read sector %i count %i\n", file_sector, bs->sectors_per_cluster);
-        cur += bs->sectors_per_cluster * SECTOR_SIZE;
-        debug("next: %i\n", ((struct fat16_super_private*)file->node->super->obj)->fat[cluster]);
-        cluster = ((struct fat16_super_private*)file->node->super->obj)->fat[cluster];
-        done++;
-    }
-    *pos += size;
-    memcpy(buffer, tmp_buf + (*pos % (SECTOR_SIZE * bs->sectors_per_cluster)), size);
 
-    return size;
+        uint16_t sector = cluster_to_sector(&private->bs, cluster);
+        //debug("fat 16 read: loading sector %i\n", sector);
+        int err = dev->read(dev, read_buf, sector, private->bs.sectors_per_cluster);
+        if (err) {
+            kfree(read_buf);
+            return err;
+        }
+
+        uint32_t copy = MIN(size - readed, MIN(file->node->size, bytes_in_cluster - pos_in_cluster));
+        //debug("fat 16 read: copy to output buffer: shifts are %i %i, amount %i\n", readed, pos_in_cluster, copy);
+        memcpy(buffer + readed, read_buf + pos_in_cluster, copy);
+        pos_in_cluster = 0;
+        readed += copy;
+        cluster = private->fat[cluster];
+    }
+    *pos += readed;
+    return readed;
 }
 
 static void fill_node_children(struct vfs_node *node, struct fat_entry *entry)
@@ -100,7 +101,7 @@ static void fill_node_children(struct vfs_node *node, struct fat_entry *entry)
         {
             continue;
         }
-        mode_t mode = (entry->attributes & (1 < 4) ? S_IFDIR : S_IFREG);
+        mode_t mode = ((entry->attributes & 0x10) ? S_IFDIR : S_IFREG);
         char name[13] = {0};
         memcpy(name, entry->filename, 8);
         char *ptr = trim(name);
@@ -121,14 +122,39 @@ static void fill_node_children(struct vfs_node *node, struct fat_entry *entry)
 
 static int preload_node(struct vfs_node *node)
 {
+    struct fat16_super_private *private = node->super->private;
+
     if (strcmp(node->name, "/") == 0) {
-        struct boot_sector *bs = ((struct fat16_super_private*)node->super->obj)->bs;
+        struct boot_sector *bs = &((struct fat16_super_private*)node->super->private)->bs;
         uint16_t root_dir_start = bs->fat_numbers * bs->sectors_per_fat + bs->reserved_sectors;
         struct fat_entry *entry = kmalloc(ROOT_DIRECTORY_SIZE);
         int err = node->super->dev->read(node->super->dev, entry, root_dir_start, ROOT_DIRECTORY_SIZE / bs->bytes_per_sector);
         if (err) {
             kfree(entry);
             return err;
+        }
+        fill_node_children(node, entry);
+        kfree(entry);
+    } else {
+        uint32_t bytes_in_cluster = SECTOR_SIZE * private->bs.sectors_per_cluster;
+        struct fat_entry *entry = kmalloc(ROOT_DIRECTORY_SIZE);
+        void *cur = entry;
+        uint16_t cluster = (uint16_t)(uint32_t)node->obj;
+        while(cluster <= 0xFFF8) {
+            if (cluster == 0x0 || cluster == 0x1 || (cluster >= 0xFFF0 && cluster <= 0xFFF6) || cluster == 0xFFF7)
+            {
+                debug("wrong FAT16 cluster %h\n", cluster);
+                hlt();
+            }
+
+            uint16_t sector = cluster_to_sector(&private->bs, cluster);
+            int err = node->super->dev->read(node->super->dev, cur, sector, ROOT_DIRECTORY_SIZE / private->bs.bytes_per_sector);
+            cur += bytes_in_cluster;
+            if (err) {
+                kfree(entry);
+                return err;
+            }
+            cluster = private->fat[cluster];
         }
         fill_node_children(node, entry);
         kfree(entry);
@@ -163,19 +189,18 @@ static struct vfs_super* read_super(struct ata_device *dev)
         kfree(bs);
         return NULL;
     }
+
     struct fat16_super_private *private = kmalloc(sizeof(struct fat16_super_private));
-    private->bs = bs;
-    struct boot_sector *bootsect = (struct boot_sector*)bs;
-    private->fat = kmalloc(bootsect->sectors_per_fat * SECTOR_SIZE);
-    err = dev->read(dev, private->fat, bootsect->reserved_sectors, bootsect->sectors_per_fat);
+    memcpy(&private->bs, bs, sizeof(struct boot_sector));
+    private->fat = kmalloc(private->bs.sectors_per_fat * SECTOR_SIZE);
+    err = dev->read(dev, private->fat, private->bs.reserved_sectors, private->bs.sectors_per_fat);
     if (err) {
         kfree(super);
         kfree(bs);
-        kfree(private->fat);
         kfree(private);
         return NULL;
     }
-    super->obj = private;
+    super->private = private;
     return super;
 }
 
@@ -206,10 +231,9 @@ void init_fat16fs()
                             continue;
                         }
                         if (strncmp(bs->fat_type, "FAT16", 5) == 0) {
-                            char name[30];
-                            char volume[12];
+                            char name[30] = {0};
+                            char volume[12] = {0};
                             memcpy(volume, bs->volume_name, 11);
-                            volume[11] = '\0';
                             sprintf(name, "/mount/%s", trim(volume));
 
                             mount_fs(name, "fat16fs", ide->channels[c].devices[d]);
@@ -221,16 +245,6 @@ void init_fat16fs()
         }
         storage = get_pci_device_by_class(PCI_CLASS_MASS_STORAGE, storage);
     }
-}
-
-static int stat_node(vfs_node_t *node, char *path, struct stat *buf)
-{
-    return 0;
-}
-
-static uint8_t exist(vfs_node_t *node, char *path)
-{
-    return 1;
 }
 
 static vfs_node_t* lookup(vfs_node_t *node, char *name)

@@ -1,8 +1,11 @@
 #include "elf.h"
+#include "liballoc.h"
+#include "vfs.h"
 #include "debug.h"
 #include "system.h"
 #include "mm.h"
 #include "string.h"
+#include "errno.h"
 
 #define ELF_MAGIC 0x7F
 #define ELF_MAGIC_SIG_0 'E'
@@ -14,24 +17,38 @@
 #define SHN_UNDEF 0
 #define SHT_NOBITS 8
 
-#include "../../usermode/brk/err.h"
-
-uint8_t load_elf(char* filename, void **entry_point)
+int load_elf(char* filename, void **entry_point)
 {
-    uint8_t *file = (void*)&__src_dash;
+    struct stat st;
+    int err = stat_fs(filename, &st);
+    if (err) {
+        return err;
+    }
+    uint8_t *file = kmalloc(st.st_size);
+    file_descriptor_t fd = sys_open(filename);
+    if (fd < 0) {
+        return err;
+    }
+    err = sys_read(fd, file, st.st_size);
+    if (err < 0) {
+        return err;
+    }
+    sys_close(fd);
 
     elf_header_t *header = (elf_header_t*)file;
     if (header->magic != ELF_MAGIC || header->signature[0] != ELF_MAGIC_SIG_0 || header->signature[1] != ELF_MAGIC_SIG_1
         || header->signature[2] != ELF_MAGIC_SIG_2)
     {
         debug("[elf] loaded file isn't in ELF format\n");
-        return ELF_WRONG_FORMAT;
+        kfree(file);
+        return -ENOEXEC;
     }
 
     if (header->type != ELF_FILE_TYPE_EXEC)
     {
         debug("[elf] loaded file has invalid type\n");
-        return ELF_WRONG_TYPE;
+        kfree(file);
+        return -ENOEXEC;
     }
 
     elf_section_t *section = (elf_section_t*)((uint32_t)header + header->section_table_position);
@@ -67,6 +84,6 @@ uint8_t load_elf(char* filename, void **entry_point)
     }
 
     *entry_point = (void*)(header->entry_point);
-
-    return ELF_SUCCESS;
+    kfree(file);
+    return 0;
 }

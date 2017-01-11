@@ -115,7 +115,7 @@ void main()
     init_io();
     print_vfs_tree(NULL, 0);
 
-    exec("/random_name");
+    exec("/mount/NO NAME/bin/dash");
     debug("[kernel] end of kernel main\n");
 
     while(true){}

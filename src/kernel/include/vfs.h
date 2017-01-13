@@ -11,6 +11,7 @@
 #define MAX_PATH_DEPTH 512
 #define MAX_PATH_LENGTH 2048
 #define MAX_OPENED_FILES 1024
+#define DEFAULT_DIR "/"
 
 #define VFS_CURRENT_DIR "."
 #define VFS_PARENT_DIR ".."
@@ -151,6 +152,7 @@ int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, vo
 int stat_fs(char *path, struct stat *buf);
 int fstat(file_descriptor_t fd, struct stat *buf);
 int fcntl(int fd, int cmd, int arg);
+int chdir(char *path);
 
 void print_vfs_tree(struct vfs_node *node, uint32_t level);
 #endif

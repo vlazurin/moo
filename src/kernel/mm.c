@@ -5,7 +5,7 @@
 #include "string.h"
 #include "liballoc.h"
 #include "system.h"
-#include "tasking.h"
+#include "task.h"
 
 uint8_t *bitmap = (uint8_t*) MM_BITMAP_VIRTUAL;
 page_directory_t * volatile page_directory = (page_directory_t*)PAGE_DIRECTORY_VIRTUAL;
@@ -233,10 +233,9 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
     asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
 
     // MUST IGNORE CALLS FOR KERNEL MEMORY, fix me
-    process_t *p = get_curent_proccess();
-    if ((uint32_t)p->brk < virtual && virtual < 0xE1C00000)
+    if ((uint32_t)current_process->brk < virtual && virtual < 0xE1C00000)
     {
-        p->brk = (void*)virtual + 0x1000;
+        current_process->brk = (void*)virtual + 0x1000;
     }
 }
 

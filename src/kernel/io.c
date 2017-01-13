@@ -1,5 +1,5 @@
 #include "vfs.h"
-#include "tasking.h"
+#include "task.h"
 #include "debug.h"
 #include "tty.h"
 
@@ -40,8 +40,8 @@ void init_io()
 {
     stdin = create_pty("stdin");
     stdout = create_pty("stdout");
-    create_thread(&process_input, 0);
-    create_thread(&process_output, 0);
+    start_thread(&process_input, 0);
+    start_thread(&process_output, 0);
 }
 
 void open_process_std()

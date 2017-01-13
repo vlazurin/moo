@@ -3,7 +3,7 @@
 #include "system.h"
 #include "port.h"
 #include "irq.h"
-#include "tasking.h"
+#include "task.h"
 
 volatile uint32_t pit_ticks;
 extern volatile uint8_t task_switch_required;

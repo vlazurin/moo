@@ -69,6 +69,7 @@ DEFN_SYSCALL3(lseek, 19, int, int, int);
 DEFN_SYSCALL0(exit, 1);
 DEFN_SYSCALL0(fork, 2);
 DEFN_SYSCALL1(brk, 45, int);
+DEFN_SYSCALL1(chdir, 0x0C, char*);
 DEFN_SYSCALL1(isatty, 200, int);
 DEFN_SYSCALL2(fstat, 28, int, struct stat *);
 DEFN_SYSCALL2(stat, 0x12, char *, struct stat *);
@@ -163,9 +164,7 @@ int getegid()
 
 int chdir(const char *path)
 {
-    char *m = "chdir!\n";
-    write(1, m, strlen(m));
-    return 0;
+    return syscall_chdir(path);
 }
 
 int dup2(int oldfd, int newfd)

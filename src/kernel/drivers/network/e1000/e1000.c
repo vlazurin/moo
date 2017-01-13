@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "pci.h"
-#include "tasking.h"
+#include "task.h"
 #include "liballoc.h"
 #include "mmio.h"
 #include "mm.h"
@@ -337,7 +337,7 @@ void e1000_init(pci_device_t *pci_dev)
 
     e1000_setup_rx(dev);
     e1000_setup_tx(dev);
-    create_thread(rx_thread, dev);
+    start_thread(rx_thread, (uint32_t)dev);
     e1000_enable(net_dev);
     debug("[e1000] initialized\n");
 }

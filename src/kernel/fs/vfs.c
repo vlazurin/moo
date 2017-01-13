@@ -3,7 +3,7 @@
 #include "string.h"
 #include "ring.h"
 #include "liballoc.h"
-#include "tasking.h"
+#include "task.h"
 #include "mutex.h"
 #include "libc.h"
 #include "errno.h"
@@ -58,7 +58,7 @@ static struct vfs_fs_type *get_fs(char *name)
  */
 static struct vfs_node *lookup(char *path)
 {
-    //debug("[vfs] (pid: %i) lookup (%s)\n", get_pid(), path);
+    debug("[vfs] (pid: %i) lookup (%s)\n", get_pid(), path);
     char *token = strtok_r(path, "/", &path);
     struct vfs_node *node = vfs_root;
     while (token != NULL && strlen(token) > 0 && node != NULL) {
@@ -147,6 +147,23 @@ static int canonicalize_path(char *path, char *out, uint32_t size)
     int err = 0;
 
     char *token;
+
+    if (copy[0] != '/') {
+        char *base = strdup(current_process->cur_dir);
+        while((token = strtok_r(base, "/", &base))) {
+            if (strlen(token) > 0) {
+                if (strcmp(token, VFS_CURRENT_DIR) == 0) {
+                    continue;
+                } else if (strcmp(token, VFS_PARENT_DIR) == 0) {
+                    ring->head_pop(ring);
+                } else {
+                    ring->push(ring, token);
+                }
+            }
+        }
+        kfree(base);
+    }
+
     while((token = strtok_r(copy, "/", &copy))) {
         if (strlen(token) > 0) {
             if (strcmp(token, VFS_CURRENT_DIR) == 0) {
@@ -208,11 +225,11 @@ cleanup:
 
 int sys_read(file_descriptor_t fd, void *buf, uint32_t size)
 {
-    if (fd >= MAX_OPENED_FILES || fd < 0 || get_curent_proccess()->files[fd] == NULL) {
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
         return -EBADF;
     }
 
-    vfs_file_t *file = get_curent_proccess()->files[fd];
+    vfs_file_t *file = current_process->files[fd];
     if (file->ops == NULL || file->ops->read == NULL) {
         return -EPERM;
     }
@@ -223,11 +240,11 @@ int sys_read(file_descriptor_t fd, void *buf, uint32_t size)
 
 int sys_write(file_descriptor_t fd, void *buf, uint32_t size)
 {
-    if (fd >= MAX_OPENED_FILES || fd < 0 || get_curent_proccess()->files[fd] == NULL) {
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
         return -EBADF;
     }
 
-    vfs_file_t *file = get_curent_proccess()->files[fd];
+    vfs_file_t *file = current_process->files[fd];
     if (file->ops == NULL || file->ops->write == NULL)
     {
         return -EPERM;
@@ -254,12 +271,12 @@ file_descriptor_t sys_open(char *path)
     }
 
     for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
-        if (get_curent_proccess()->files[i] == NULL) {
+        if (current_process->files[i] == NULL) {
             file = kmalloc(sizeof(vfs_file_t));
             memset(file, 0, sizeof(vfs_file_t));
             file->ops = node->file_ops;
             file->node = node;
-            file->pid = get_curent_proccess()->id;
+            file->pid = current_process->id;
             if (file->ops && file->ops->open) {
                 err = file->ops->open(file, 0);
                 if (err) {
@@ -267,7 +284,7 @@ file_descriptor_t sys_open(char *path)
                 }
             }
 
-            get_curent_proccess()->files[i] = file;
+            current_process->files[i] = file;
             err = i;
             goto mutex_cleanup;
         }
@@ -282,18 +299,18 @@ mutex_cleanup:
 
 int sys_close(file_descriptor_t fd)
 {
-    if (fd >= MAX_OPENED_FILES || fd < 0 || get_curent_proccess()->files[fd] == NULL) {
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
         return -EBADF;
     }
 
-    vfs_file_t *file = get_curent_proccess()->files[fd];
+    vfs_file_t *file = current_process->files[fd];
     if (file->ops != NULL && file->ops->close != NULL) {
         int err = file->ops->close(file);
         if (err) {
             return err;
         }
     }
-    get_curent_proccess()->files[fd] = NULL;
+    current_process->files[fd] = NULL;
     kfree(file);
     return 0;
 }
@@ -305,15 +322,15 @@ int fstat(file_descriptor_t fd, struct stat *buf)
 
 int fcntl(int fd, int cmd, int arg)
 {
-    if (fd >= MAX_OPENED_FILES || fd < 0 || get_curent_proccess()->files[fd] == NULL) {
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
         return -EBADF;
     }
 
     switch (cmd) {
         case F_DUPFD:
             for(uint32_t i = cmd; i < MAX_OPENED_FILES; i++) {
-                if (get_curent_proccess()->files[i] == NULL) {
-                    get_curent_proccess()->files[i] = get_curent_proccess()->files[fd];
+                if (current_process->files[i] == NULL) {
+                    current_process->files[i] = current_process->files[fd];
                     return i;
                 }
             }
@@ -321,18 +338,18 @@ int fcntl(int fd, int cmd, int arg)
         break;
         case F_DUPFD_CLOEXEC:
             for(uint32_t i = cmd; i < MAX_OPENED_FILES; i++) {
-                if (get_curent_proccess()->files[i] == NULL) {
-                    get_curent_proccess()->files[i] = get_curent_proccess()->files[fd];
-                    get_curent_proccess()->files[i]->flags |= FD_CLOEXEC;
+                if (current_process->files[i] == NULL) {
+                    current_process->files[i] = current_process->files[fd];
+                    current_process->files[i]->flags |= FD_CLOEXEC;
                     return i;
                 }
             }
         break;
         case F_GETFD:
-            return get_curent_proccess()->files[fd]->flags;
+            return current_process->files[fd]->flags;
         break;
         case F_SETFD:
-            return get_curent_proccess()->files[fd]->flags = arg;
+            return current_process->files[fd]->flags = arg;
         break;
         default:
             debug("unknown fcntl cmd %i\n", cmd);
@@ -407,6 +424,33 @@ int mount_fs(char *path, char *fs_name, struct ata_device *dev)
 
 mutex_cleanup:
     mutex_release(&vfs_mutex);
+cleanup:
+    kfree(canonical);
+    return err;
+}
+
+int chdir(char *path)
+{
+    assert(strlen(path) < MAX_PATH_LENGTH);
+
+    int err = 0;
+    char *canonical = kmalloc(MAX_PATH_LENGTH);
+    err = canonicalize_path(path, canonical, MAX_PATH_LENGTH);
+    if (err) {
+        goto cleanup;
+    }
+
+    struct stat st;
+    err = stat_fs(path, &st);
+    if (err) {
+        goto cleanup;
+    }
+    if ((st.st_mode & S_IFDIR) != S_IFDIR) {
+        err = -ENOTDIR;
+        goto cleanup;
+    }
+    strcpy(current_process->cur_dir, path);
+
 cleanup:
     kfree(canonical);
     return err;

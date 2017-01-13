@@ -41,7 +41,6 @@ void process_arp_request(network_device_t *net_dev, void *packet)
 void send_arp_request(network_device_t *net_dev, ip4_addr_t *ip)
 {
     eth_addr_t mac_empty = ETH_ADDR_EMPTY;
-    assert(!COMPARE_IP4_ADDR(*ip, IP4_ADDR_EMPTY));
 
     arp_packet_t *packet = kmalloc(sizeof(arp_packet_t));
     memset(packet, 0, sizeof(arp_packet_t));

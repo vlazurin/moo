@@ -1,7 +1,7 @@
 #include "tcp.h"
 #include "pit.h"
 #include "mutex.h"
-#include "tasking.h"
+#include "task.h"
 #include "liballoc.h"
 #include "string.h"
 #include "debug.h"
@@ -452,7 +452,7 @@ void init_tcp_protocol()
 {
     tcp_binders = kmalloc(sizeof(tcp_socket_binder_t*) * 0xFFFF);
     memset(tcp_binders, 0, sizeof(tcp_socket_binder_t*) * 0xFFFF);
-    create_thread(process_tcp_data, 0);
+    start_thread(process_tcp_data, 0);
 }
 
 uint8_t accept_tcp_connection(tcp_socket_binder_t *binder, tcp_socket_t **out, uint32_t timeout)

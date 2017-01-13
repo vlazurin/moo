@@ -7,7 +7,7 @@
 #include "mm.h"
 #include "pit.h"
 #include "pci.h"
-#include "tasking.h"
+#include "task.h"
 #include "timer.h"
 #include "liballoc.h"
 #include "tests.h"
@@ -62,7 +62,7 @@ void main()
     kernel_params = ptr;
 
     init_pit();
-    init_tasking();
+    init_multitasking();
     init_timer();
 
     init_tempfs();
@@ -74,9 +74,7 @@ void main()
         hlt();
     }
     mkdir("/dev");
-    mkdir("/home");
     mkdir("/mount");
-    mkdir("/home/moo");
 
     init_serial();
     init_urandom();
@@ -114,7 +112,6 @@ void main()
     setup_syscalls();
     init_io();
     print_vfs_tree(NULL, 0);
-
     exec("/mount/NO NAME/bin/dash");
     debug("[kernel] end of kernel main\n");
 

@@ -147,7 +147,7 @@ void main()
 
     // map the first 1MB of memory
     fill_paging_info(0, 0, 256);
-    fill_paging_info(0xE1C00000, (uint32_t)kernel_entry_point, kernel_size / 0x1000);
+    fill_paging_info(KERNEL_VIRTUAL_ADDR, (uint32_t)kernel_entry_point, kernel_size / 0x1000);
     fill_paging_info(PAGE_DIRECTORY_VIRTUAL, (uint32_t)page_directory, PAGE_DIRECTORY_TOTAL_SIZE / 0x1000);
     fill_paging_info(MM_BITMAP_VIRTUAL, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE + 0x1000, MM_BITMAP_SIZE / 0x1000);
     fill_paging_info(KERNEL_STACK, (uint32_t)page_directory + PAGE_DIRECTORY_TOTAL_SIZE + MM_BITMAP_SIZE  + 0x2000, KERNEL_STACK_SIZE / 0x1000);
@@ -193,5 +193,5 @@ void main()
     asm("movl %0, %%eax" :: "r"(KERNEL_STACK + KERNEL_STACK_SIZE) : "%eax");
     asm("mov %eax, %esp");
     asm("movl %0, %%ebx" :: "r"(&kernel_params) : "%ebx");
-    asm("ljmp $0x08, $0xE1C00000");
+    asm("ljmp $0x08, %0" :: "i"(KERNEL_VIRTUAL_ADDR));
 }

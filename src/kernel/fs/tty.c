@@ -5,9 +5,9 @@
 #include "stdlib.h"
 #include "debug.h"
 #include "system.h"
-#include "tasking.h"
+#include "task.h"
 
-extern process_t *current_process;
+extern struct process *current_process;
 
 static int slave_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
@@ -19,7 +19,7 @@ static int slave_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *off
         return 0;
     }
 
-    while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_process_pid() != file->pid)
+    while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_pid() != file->pid)
     {
         debug("[pty] slave write call from background process -> wait\n");
         force_task_switch();
@@ -102,7 +102,7 @@ static int slave_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offs
 {
     pty_t *pty = file->node->obj;
 
-    while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_process_pid() != file->pid)
+    while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_pid() != file->pid)
     {
         debug("[pty] slave read call from background process -> wait\n");
         force_task_switch();

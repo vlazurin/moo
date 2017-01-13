@@ -3,7 +3,7 @@
 #include "mm.h"
 #include "timer.h"
 #include "vfs.h"
-#include "tasking.h"
+#include "task.h"
 
 static int syscall_write(file_descriptor_t fd, char *buf, uint32_t len)
 {
@@ -32,7 +32,7 @@ static int syscall_fcntl(file_descriptor_t fd, uint32_t cmd, uint32_t arg)
 
 static int syscall_stat(char *path, struct stat *stat)
 {
-    debug("[syscall] stat\n");
+    debug("[syscall] stat: %s\n", path);
     return stat_fs(path, stat);
 }
 
@@ -57,12 +57,12 @@ static int syscall_getgid()
 static int syscall_brk(uint32_t addr)
 {
     debug("[syscall] brk %h\n", addr);
-    if (addr == 0 || (uint32_t)get_curent_proccess()->brk > addr)
+    if (addr == 0 || (uint32_t)current_process->brk > addr)
     {
-        return (uint32_t)get_curent_proccess()->brk;
+        return (uint32_t)current_process->brk;
     }
 
-    uint32_t current = (uint32_t)get_curent_proccess()->brk;
+    uint32_t current = (uint32_t)current_process->brk;
     uint32_t new = PAGE_ALIGN(addr);
     while(current < new)
     {
@@ -86,12 +86,17 @@ static int syscall_fork(struct regs *r)
     debug("fork result: %i\n", result);
     return result;
 }
-extern void execve(char *path, char **argv);
+extern int execve(char *path, char **argv);
 static int syscall_execve(struct regs *r)
 {
     debug("execve: %s %h\n", (char*)r->ebx, (void*)r->ecx);
-    execve((void*)r->ebx, (void*)r->ecx);
-    return 0;
+    return execve((void*)r->ebx, (void*)r->ecx);
+}
+
+static int syscall_chdir(struct regs *r)
+{
+    debug("chdir: %s\n", (char*)r->ebx);
+    return chdir((char*)r->ebx);
 }
 
 void handle_syscall_routine(struct regs *r)
@@ -124,6 +129,9 @@ void handle_syscall_routine(struct regs *r)
         case 0xb:
             result = syscall_execve(r);
         break;
+        case 0x0c:
+            result = syscall_chdir(r);
+        break;
         case 0xc8:
             result = syscall_getgid();
         break;
@@ -140,7 +148,7 @@ void handle_syscall_routine(struct regs *r)
             debug("[syscall] unknown (eax: %h, ebx: %h, ecx: %h, edx: %h)\n", r->eax, r->ebx, r->ecx, r->edx);
         break;
     }
-
+    debug("syscall ret %h\n", result);
     r->eax = result;
 }
 

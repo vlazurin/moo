@@ -59,6 +59,11 @@ typedef struct page_directory
     uint32_t *pages[1024];
 } page_directory_t;
 
+#define KERNEL_SPACE_ADDR 0xC0000000
+// 0x400000 - bytes in 4 mb (one page directory covers 4 mb of memory)
+#define KERNEL_SPACE_START_PAGE_DIR (KERNEL_SPACE_ADDR / 0x400000)
+#define KERNEL_VIRTUAL_ADDR 0xC0100000
+
 #define PAGE_DIRECTORY_TOTAL_SIZE (PAGE_ALIGN(sizeof(page_directory_t)) + 0x400000)
 #define PAGE_DIRECTORY_VIRTUAL (0x100000000 - PAGE_DIRECTORY_TOTAL_SIZE)
 

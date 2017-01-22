@@ -21,6 +21,8 @@
 #include "elf.h"
 #include "tty.h"
 #include "kb.h"
+#include "tss.h"
+#include "gdt.h"
 
 void setup_syscalls();
 extern kernel_load_info_t *kernel_params;
@@ -50,6 +52,8 @@ void main()
 
     init_irq();
     init_memory_manager(kernel_params);
+
+    init_gdt();
 
     #ifdef RUN_TESTS
     run_tests();

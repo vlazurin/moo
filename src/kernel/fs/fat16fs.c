@@ -99,6 +99,7 @@ static void fill_node_children(struct vfs_node *node, struct fat_entry *entry)
     {
         if (entry->filename[0] == 0xe5 || entry->attributes == 0x0F || entry->attributes == 0x08)
         {
+            entry++;
             continue;
         }
         mode_t mode = ((entry->attributes & 0x10) ? S_IFDIR : S_IFREG);

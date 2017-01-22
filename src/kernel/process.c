@@ -1,11 +1,13 @@
 #include "task.h"
 #include "string.h"
 #include "liballoc.h"
+#include "gdt.h"
 #include "mm.h"
 #include "elf.h"
 #include "vfs.h"
 #include "debug.h"
 #include "errno.h"
+#include "tss.h"
 #include <stdbool.h>
 
 void open_process_std();
@@ -26,59 +28,70 @@ uint8_t exec(char *path)
     schedule_process(p);
     return 0;
 }
+extern void enter_userspace(uintptr_t location, uintptr_t stack);
+char *envp[] = {"PWD=/"};
 
 int execve(char *path, char **argv)
 {
-    struct stat st;
-    int err = stat_fs(path, &st);
+    int err = check_elf(path);
     if (err) {
         return err;
     }
-    if (st.st_mode != S_IFREG) {
-        return -ENOEXEC;
-    }
 
+    // count args count and required memory
     int argc = 0;
+    int size = 0;
     while(argv[argc] != NULL) {
+        size += strlen(argv[argc]) + 1; // +1 for EOS char
         argc++;
     }
-    char **params = kmalloc(argc * 4);
-    for(int i = 0; i < argc; i++) {
-        params[i] = kmalloc(strlen(argv[i]) + 1);
-        strcpy(params[i], argv[i]);
-    }
-    char *path_tmp = kmalloc(MAX_PATH_LENGTH);
-    strcpy(path_tmp, path);
 
-    // must start from 0, fix stupid hack in tasking.c create_process
-    for(uint32_t i = 1; i < KERNEL_SPACE_START_PAGE_DIR; i++) {
-        if (page_directory->directory[i] == 2) {
-            continue;
-        }
-        for(uint32_t y = 0; y < 1024; y++) {
-            if ((page_directory->pages[i][y] & 3) == 3) {
-                //debug("free %h\n", (i * 1024 + y) * 0x1000);
-                free_page((i * 1024 + y) * 0x1000);
-            }
-        }
+    // copy params to tmp storage
+    void *params = kmalloc(size);
+    void *cur = params;
+    for(uint32_t i = 0; i < argc; i++) {
+        int length = strlen(argv[i]) + 1;
+        memcpy(cur, argv[i], length);
+        cur += length;
     }
 
-    void (*entry_point)(int argc, char *argv[], char *envp[]) = 0;
-    load_elf(path_tmp, (void**)&entry_point);
-    kfree(path_tmp);
-    if (entry_point == 0)
-    {
-        debug("load_elf failed\n");
-        return -ENOEXEC;
+    // backup exec path
+    char *path_back = kmalloc(MAX_PATH_LENGTH);
+    strcpy(path_back, path);
+
+    free_userspace();
+    current_process->brk = NULL;
+    // from now thread must be terminated if any errors, it can't return to userspace anymore
+
+    uint32_t entry_point = 0;
+    err = load_elf(path_back, (void**)&entry_point);
+    kfree(path_back);
+    if (err || entry_point == 0) {
+        kfree(params);
+        stop_process();
     }
+
+    // setup userspace stack
+    void* brk = current_process->brk;
+    for(uint8_t i = 0; i < USERSPACE_STACK_SIZE / 0x1000; i++) {
+        uint32_t page = alloc_physical_page();
+        map_virtual_to_physical(USERSPACE_STACK + i * 0x1000, page);
+    }
+    // restore brk because it's modified by last map_virtual_to_physical calls
+    current_process->brk = brk;
 
     open_process_std();
-//    if (get_fg_pid() == get_pid()) {
-        set_fg_pid(get_pid());
-//    }
-    //debug("%i %s %s\n", count, params[0], params[1]);
-    char *envp[] = {"PWD=/"};
-    entry_point(argc, params, envp);
+    set_fg_pid(get_pid());
+
+    set_kernel_stack((uint32_t)current_thread->stack_mem + KERNEL_STACK_SIZE);
+
+    //while(1){}
+    //PUSH_STACK(x, envp);
+    //PUSH_STACK(x, argv);
+    //PUSH_STACK(x, argc);
+    //x-=4; // return address
+
+    enter_userspace((uint32_t)entry_point, USERSPACE_STACK_TOP-0x400);
     assert(true, "something isn't ok with execve -> unreachable point");
     return 0;
 }

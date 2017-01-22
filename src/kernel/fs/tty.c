@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include "tty.h"
 #include "errno.h"
 #include "liballoc.h"
@@ -19,9 +20,13 @@ static int slave_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *off
         return 0;
     }
 
+    uint8_t reported = false;
     while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_pid() != file->pid)
     {
-        debug("[pty] slave write call from background process -> wait\n");
+        if (reported == false) {
+            debug("[pty] slave write call from background process %i -> wait\n", get_fg_pid());
+            reported = true;
+        }
         force_task_switch();
     }
 

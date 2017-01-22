@@ -17,6 +17,8 @@ set(SOURCE_FILES
         mutex.c
         stb_truetype.c
         pit.c
+        gdt.c
+        gdt.S
         task.c
         log.c
         timer.c

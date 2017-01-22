@@ -7,7 +7,7 @@
 
 static int syscall_write(file_descriptor_t fd, char *buf, uint32_t len)
 {
-    debug("[syscall] write fd %i\n", fd);
+    debug("[syscall] (PID: %i) write fd %i\n", get_pid(), fd);
     len = sys_write(fd, buf, len);
     return len;
 }
@@ -102,7 +102,7 @@ static int syscall_chdir(struct regs *r)
 void handle_syscall_routine(struct regs *r)
 {
     //debug("[syscall] eax: %h\n", r->eax);
-    uint32_t result = -1;
+    int result = -1;
     switch (r->eax)
     {
         case 0x2:
@@ -120,7 +120,12 @@ void handle_syscall_routine(struct regs *r)
         case 0x12:
             result = syscall_stat((char*)r->ebx, (void*)r->ecx);
         break;
+        case 0x1C:
+            debug("fstat\n");
+            result = (-1);
+        break;
         case 0x14:
+            debug("getpid\n");
             result = get_pid();
         break;
         case 1:
@@ -148,7 +153,7 @@ void handle_syscall_routine(struct regs *r)
             debug("[syscall] unknown (eax: %h, ebx: %h, ecx: %h, edx: %h)\n", r->eax, r->ebx, r->ecx, r->edx);
         break;
     }
-    debug("syscall ret %h\n", result);
+    debug("syscall ret value %h\n", result);
     r->eax = result;
 }
 

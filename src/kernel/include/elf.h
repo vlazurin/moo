@@ -57,6 +57,7 @@ typedef struct elf_symbol
     uint16_t shndx;
 } __attribute__((packed)) elf_symbol_t;
 
+int check_elf(char *filename);
 int load_elf(char* filename, void **entry_point);
 
 #endif

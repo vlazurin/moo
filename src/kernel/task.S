@@ -1,3 +1,23 @@
+.global enter_userspace
+enter_userspace:
+    mov $0x23, %ax
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+
+    mov 8(%esp), %eax
+    mov 4(%esp), %edx
+    pushl $0x23
+    pushl %eax
+    pushf
+    popl %eax
+    orl $0x200, %eax
+    pushl %eax
+    pushl $0x1B
+    push %edx
+    iret
+
 .global return_to_userspace
 return_to_userspace:
     pop %gs

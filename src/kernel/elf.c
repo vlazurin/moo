@@ -8,14 +8,41 @@
 #include "errno.h"
 
 #define ELF_MAGIC 0x7F
-#define ELF_MAGIC_SIG_0 'E'
-#define ELF_MAGIC_SIG_1 'L'
-#define ELF_MAGIC_SIG_2 'F'
+#define ELF_MAGIC_SIG "ELF"
 
 #define ELF_FILE_TYPE_EXEC 0x2
 
 #define SHN_UNDEF 0
 #define SHT_NOBITS 8
+
+int check_elf(char *filename)
+{
+    struct stat st;
+    int err = stat_fs(filename, &st);
+    if (err) {
+        return err;
+    }
+    if (st.st_mode != S_IFREG) {
+        return -ENOEXEC;
+    }
+
+    char sig[4];
+    file_descriptor_t fd = sys_open(filename);
+    if (fd < 0) {
+        return fd;
+    }
+    err = sys_read(fd, sig, 4);
+    sys_close(fd);
+    if (err < 0) {
+        return err;
+    }
+
+    if (sig[0] != ELF_MAGIC || strncmp(&sig[1], ELF_MAGIC_SIG, 3) != 0) {
+        return -ENOEXEC;
+    }
+
+    return 0;
+}
 
 int load_elf(char* filename, void **entry_point)
 {
@@ -36,9 +63,7 @@ int load_elf(char* filename, void **entry_point)
     sys_close(fd);
 
     elf_header_t *header = (elf_header_t*)file;
-    if (header->magic != ELF_MAGIC || header->signature[0] != ELF_MAGIC_SIG_0 || header->signature[1] != ELF_MAGIC_SIG_1
-        || header->signature[2] != ELF_MAGIC_SIG_2)
-    {
+    if (header->magic != ELF_MAGIC || strncmp((void*)&header->signature, ELF_MAGIC_SIG, 3) != 0) {
         debug("[elf] loaded file isn't in ELF format\n");
         kfree(file);
         return -ENOEXEC;
@@ -57,7 +82,7 @@ int load_elf(char* filename, void **entry_point)
         if (section->address != 0 && section->type != SHN_UNDEF)
         {
             //TODO: add section address validation, and restrict loading in kernel area
-            //debug("[elf] loading section with type %i at %h\n", section->type, section->address);
+            debug("[elf] loading section with type %i at %h, size is %h\n", section->type, section->address, section->size);
             uint32_t start_page = section->address / 0x1000;
             uint32_t end_page = (section->address + section->size) / 0x1000;
             do

@@ -38,6 +38,7 @@ struct process
 };
 
 extern struct process *current_process;
+extern struct thread *current_thread;
 
 void init_multitasking();
 void switch_task();
@@ -49,5 +50,6 @@ uint32_t get_fg_pid();
 void set_fg_pid(uint32_t pid);
 uint32_t get_pid();
 int fork(struct regs *r);
+void stop_process();
 
 #endif

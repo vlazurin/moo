@@ -31,6 +31,11 @@ kernel_load_info_t kernel_params;
 
 page_directory_t *page_directory = 0;
 
+#define GDT_SIZE 3
+
+struct gdt_entry gdt_entries[GDT_SIZE];
+struct gdt_register gdt_reg;
+
 // linker will set values(see os_loader.ld)
 uint32_t *bss_start;
 uint32_t *bss_end;
@@ -44,8 +49,8 @@ void fill_paging_info(uint32_t virtual, uint32_t physical, uint32_t pages_count)
     {
         uint32_t dir = (virtual >> 22);
         uint32_t page = (virtual >> 12) & 0x03FF;
-        uint32_t *pages = (uint32_t*)(page_directory->directory[dir] & ~3);
-        pages[page] = physical | 3;
+        uint32_t *pages = (uint32_t*)(page_directory->directory[dir] & ~7);
+        pages[page] = physical | 7;
         virtual += 0x1000;
         physical += 0x1000;
     }
@@ -137,7 +142,7 @@ void main()
     for(uint16_t i = 0; i < 1024; i++)
     {
         page_table = (void*)page_directory + PAGE_ALIGN(sizeof(page_directory_t)) + 0x1000 * i;
-        page_directory->directory[i] = (uint32_t)page_table | 3;
+        page_directory->directory[i] = (uint32_t)page_table | 7;
         for(uint16_t y = 0; y < 1024; y++)
         {
             page_table[y] = 0 | 2;
@@ -154,13 +159,15 @@ void main()
 
     add_to_memory_map((uint32_t)kernel_entry_point, required_memory, MEMORY_MAP_REGION_RESERVED);
 
-    gdt_init();
-    gdt_set_gate(0, 0, 0, 0, 0);
+    gdt_set_gate(gdt_entries, 0, 0, 0, 0, 0);
     // code segment, 4 kb, 32 bit opcode, supervisor
-    gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);
+    gdt_set_gate(gdt_entries, 1, 0, 0xFFFFFFFF, 0x9A, 0xCF);
     // data segment, supervisor
-    gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
-    set_gdt();
+    gdt_set_gate(gdt_entries, 2, 0, 0xFFFFFFFF, 0x92, 0xCF);
+
+    gdt_reg.limit = (sizeof(struct gdt_entry) * GDT_SIZE) - 1;
+    gdt_reg.base = (uint32_t)gdt_entries;
+    asm("lgdt gdt_reg");
 
     kernel_params.memory_map = memory_map;
     kernel_params.memory_map_length = memory_map_length;

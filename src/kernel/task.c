@@ -17,9 +17,9 @@ static struct process *processes;
 static volatile mutex_t global_mutex;
 struct process *current_process = 0;
 static struct process *fg_process = 0;
-static struct thread *current_thread = 0;
+ struct thread *current_thread = 0;
 static uint32_t next_pid = 0;
-
+void set_kernel_stack(uintptr_t stack);
 extern page_directory_t *page_directory;
 
 static void terminate_thread()
@@ -54,6 +54,19 @@ static struct thread *create_thread()
     return thread;
 }
 
+void stop_process()
+{
+    cli();
+    struct thread *iterator = current_process->threads;
+    while(iterator != 0)
+    {
+        iterator->state = THREAD_TERMINATED;
+        iterator = (struct thread*)iterator->list.next;
+    }
+    sti();
+    force_task_switch();
+}
+
 void start_thread(void *entry_point, uint32_t arg)
 {
     assert((uintptr_t)entry_point >= KERNEL_SPACE_ADDR);
@@ -74,7 +87,6 @@ void start_thread(void *entry_point, uint32_t arg)
     add_to_list(current_process->threads, thread);
     sti();
 }
-
 
 struct process *create_process(void *entry_point, uint32_t arg)
 {
@@ -97,9 +109,6 @@ struct process *create_process(void *entry_point, uint32_t arg)
             process->page_dir->pages[i] = page_directory->pages[i];
         }
     }
-
-    // TODO: stupid hack
-    process->page_dir->directory[0] = page_directory->directory[0];
 
     struct thread *thread = create_thread();
     thread->id = __sync_fetch_and_add(&process->next_thread_id, 1);
@@ -137,6 +146,7 @@ void set_fg_pid(uint32_t pid)
     {
         if (iterator->id == pid)
         {
+            debug("foreground process change, new id %i\n", iterator->id);
             fg_process = iterator;
             break;
         }
@@ -150,26 +160,27 @@ uint32_t get_fg_pid()
     assert((uint32_t)fg_process >= KERNEL_SPACE_ADDR);
     return fg_process->id;
 }
-
+extern void return_to_userspace();
 int fork(struct regs *r)
 {
-    return 0;
-    /*struct process *p = create_process(0, 0);
+    struct process *p = create_process(0, 0);
     p->page_dir = current_process->page_dir;
-
-    uint32_t stack_size = (uintptr_t)current_thread->stack_mem - (uint32_t)r;
-    r->eax = 0;
-    memcpy((void*)p->threads[0].stack_mem - stack_size, (uint8_t*)r, stack_size);
-    p->threads[0].regs.ebp = (uintptr_t)p->threads[0].stack_mem;
-    p->threads[0].regs.esp = (uintptr_t)p->threads[0].stack_mem - stack_size;
+    for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
+        p->files[i] = current_process->files[i];
+    }
+    memcpy(p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs), r, sizeof(struct regs));
+    p->threads[0].regs.esp = (uint32_t)p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs);
+    p->threads[0].regs.ebp = p->threads[0].regs.esp;
     p->threads[0].regs.eip = (uint32_t)&return_to_userspace;
-    //TODO: change eax, because of fork return value
-    debug("eax %h, ebx %h, eip %h\n", r->eax, r->ebx, r->eip);
+
+    struct regs *new = (struct regs*)p->threads[0].regs.esp;
+    new->eax = 0;
+
     cli();
     add_to_list(processes, p);
     sti();
     while(1){}
-    return get_pid();*/
+    return get_pid();
 }
 
 void init_multitasking()
@@ -187,6 +198,7 @@ void init_multitasking()
     thread->id = 0;
     thread->state = THREAD_RUNNING;
     thread->process = process;
+    set_kernel_stack((uint32_t)thread->stack_mem + KERNEL_STACK_SIZE);
 
     process->threads = thread;
 
@@ -250,6 +262,7 @@ void switch_task()
 
     current_process = ps;
     current_thread = th;
+    set_kernel_stack((uint32_t)th->stack_mem + KERNEL_STACK_SIZE);
 
     perform_task_switch(current_thread->regs.eip, current_thread->regs.ebp, current_thread->regs.esp);
 }

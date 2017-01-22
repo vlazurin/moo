@@ -226,16 +226,17 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
             page_directory->pages[dir][i] = 2;
         }
 
-        page_directory->directory[dir] = get_physical_address((uint32_t)page_directory->pages[dir]) | 3;
+        page_directory->directory[dir] = get_physical_address((uint32_t)page_directory->pages[dir]) | 7;
     }
 
-    page_directory->pages[dir][page] = physical | 3;
+    page_directory->pages[dir][page] = physical | 7;
     asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
 
     // MUST IGNORE CALLS FOR KERNEL MEMORY, fix me
-    if ((uint32_t)current_process->brk < virtual && virtual < 0xE1C00000)
+    if ((uint32_t)current_process->brk <= virtual && virtual < 0xE1C00000)
     {
         current_process->brk = (void*)virtual + 0x1000;
+        debug("(PID: %i) new brk %h\n", get_pid(), current_process->brk);
     }
 }
 
@@ -252,7 +253,7 @@ uint32_t get_physical_address(uint32_t virtual)
     uint32_t dir = (virtual >> 22);
     uint32_t page = (virtual >> 12) & 0x03FF;
     // Should be mutex lock before IF? Probably value in page_table can be changed between IF and calc...
-    if (page_directory->pages[dir] != 0 && (page_directory->pages[dir][page] & 3) == 3)
+    if (page_directory->pages[dir] != 0 && (page_directory->pages[dir][page] & 7) == 7)
     {
         return (page_directory->pages[dir][page] & 0xFFFFF000) + (virtual & 0xFFF);
     }
@@ -266,12 +267,25 @@ void free_page(uint32_t virtual)
     uint32_t dir = (virtual >> 22);
     uint32_t page = (virtual >> 12) & 0x03FF;
     // Should be mutex lock before IF? Probably value in page_table can be changed between IF and calc...
-    if (page_directory->pages[dir] != 0 && (page_directory->pages[dir][page] & 3) == 3)
-    {
+    if (page_directory->pages[dir] != 0 && (page_directory->pages[dir][page] & 7) == 7) {
         uint32_t phys = (page_directory->pages[dir][page] & 0xFFFFF000) + (virtual & 0xFFF);
         uint32_t index = phys / 0x1000 / 8;
         bitmap[index] &= ~(1 << (phys / 0x1000 % 8));
         page_directory->pages[dir][page] = 2;
         asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
+    }
+}
+
+void free_userspace()
+{
+    for(uint32_t i = 0; i < KERNEL_SPACE_START_PAGE_DIR; i++) {
+        if (page_directory->directory[i] == 2) {
+            continue;
+        }
+        for(uint32_t y = 0; y < 1024; y++) {
+            if ((page_directory->pages[i][y] & 7) == 7) {
+                free_page((i * 0x400 + y) * 0x1000);
+            }
+        }
     }
 }

@@ -120,7 +120,7 @@ static void set_irq_gate(uint8_t number, void *handler)
     idt[number].base_high = (uint32_t)handler >> 16;
     idt[number].selector = 0x08;
     idt[number].reserved = 0;
-    idt[number].flags = 0x8E;
+    idt[number].flags = 0x8E | 0x60;
 }
 
 void set_irq_handler(uint8_t number, void *handler)
@@ -160,13 +160,13 @@ void init_irq()
     set_irq_gate(5, _irq5);
     set_irq_gate(6, _irq6);
     set_irq_gate(7, _irq7);
-    set_irq_gate(8, _irq8);
+    //set_irq_gate(8, _irq8);
     set_irq_gate(9, _irq9);
     set_irq_gate(10, _irq10);
     set_irq_gate(11, _irq11);
     set_irq_gate(12, _irq12);
     set_irq_gate(13, _irq13);
-    set_irq_gate(14, _irq14);
+    //set_irq_gate(14, _irq14);
     set_irq_gate(15, _irq15);
     set_irq_gate(16, _irq16);
     set_irq_gate(17, _irq17);

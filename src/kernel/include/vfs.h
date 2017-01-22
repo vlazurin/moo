@@ -11,7 +11,7 @@
 #define MAX_PATH_DEPTH 512
 #define MAX_PATH_LENGTH 2048
 #define MAX_OPENED_FILES 1024
-#define DEFAULT_DIR "/"
+#define DEFAULT_DIR "/mount/NO NAME/"
 
 #define VFS_CURRENT_DIR "."
 #define VFS_PARENT_DIR ".."

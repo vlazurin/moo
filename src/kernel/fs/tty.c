@@ -20,15 +20,15 @@ static int slave_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *off
         return 0;
     }
 
-    uint8_t reported = false;
-    while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_pid() != file->pid)
+    //uint8_t reported = false;
+    /*while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_pid() != file->pid)
     {
         if (reported == false) {
             debug("[pty] slave write call from background process %i -> wait\n", get_fg_pid());
             reported = true;
         }
         force_task_switch();
-    }
+    }*/
 
     uint32_t min = MIN(size, pty->out->get_free_space(pty->out));
     pty->out->add(pty->out, buf, min);
@@ -107,11 +107,11 @@ static int slave_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offs
 {
     pty_t *pty = file->node->obj;
 
-    while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_pid() != file->pid)
+    /*while ((pty->flags & PTY_FLAG_FG_ONLY) && get_fg_pid() != file->pid)
     {
         debug("[pty] slave read call from background process -> wait\n");
         force_task_switch();
-    }
+    }*/
 
     uint32_t count = pty->in->get_until(pty->in, buf, size, '\n');
     while(count == 0)

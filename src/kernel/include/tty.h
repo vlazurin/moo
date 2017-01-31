@@ -20,6 +20,7 @@ typedef struct pty
     buffer_t *in;
     buffer_t *out;
     uint32_t flags;
+    int ct_group_id;
 } pty_t;
 
 file_descriptor_t create_pty(char *slave_name);

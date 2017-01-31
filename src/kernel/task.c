@@ -1,4 +1,5 @@
 #include "task.h"
+#include "errno.h"
 #include "liballoc.h"
 #include "timer.h"
 #include "debug.h"
@@ -63,6 +64,7 @@ void stop_process()
         iterator->state = THREAD_TERMINATED;
         iterator = (struct thread*)iterator->list.next;
     }
+    current_process->state = PROCESS_TERMINATED;
     sti();
     force_task_switch();
 }
@@ -96,6 +98,8 @@ struct process *create_process(void *entry_point, uint32_t arg)
     // failsafe, probably it never will be false :)
     assert(next_pid < 0xFFFFFF00);
 
+    process->signals_queue = create_ring(100);
+
     process->id = __sync_fetch_and_add(&next_pid, 1);
     process->page_dir_base = kmalloc(sizeof(page_directory_t) + 0x1000);
     process->page_dir = (page_directory_t*)PAGE_ALIGN((uint32_t)process->page_dir_base);
@@ -127,6 +131,7 @@ void schedule_process(struct process *p)
 {
     assert((uint32_t)p >= KERNEL_SPACE_ADDR && (uint32_t)p->threads >= KERNEL_SPACE_ADDR);
     cli();
+    p->state = PROCESS_RUNNING;
     add_to_list(processes, p);
     sti();
 }
@@ -160,33 +165,116 @@ uint32_t get_fg_pid()
     assert((uint32_t)fg_process >= KERNEL_SPACE_ADDR);
     return fg_process->id;
 }
+
 extern void return_to_userspace();
 int fork(struct regs *r)
 {
     struct process *p = create_process(0, 0);
-    p->page_dir = current_process->page_dir;
+    p->parent_id = get_pid();
     for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
-        p->files[i] = current_process->files[i];
+        if (p->files[i] != NULL) {
+            p->files[i] = kmalloc(sizeof(vfs_file_t));
+            memcpy(p->files[i], current_process->files[i], sizeof(vfs_file_t));
+            p->files[i]->pid = p->id;
+        }
     }
+
+    void *buffer_chunk = kmalloc(0x2000);
+    void *buffer = (void*)PAGE_ALIGN((uint32_t)buffer_chunk);
+    uint32_t buffer_phys_back = get_physical_address((uint32_t)buffer);
+
+    for(uint32_t i = 0; i < KERNEL_SPACE_START_PAGE_DIR; i++) {
+        if (page_directory->directory[i] == 2) {
+            continue;
+        }
+
+        p->page_dir->page_chunks[i] = kmalloc(0x1000 + 0x1000);
+        p->page_dir->pages[i] = (uint32_t*)PAGE_ALIGN((uint32_t)p->page_dir->page_chunks[i]);
+        p->page_dir->directory[i] = get_physical_address((uint32_t)p->page_dir->pages[i]) | 7;
+        for(uint32_t y = 0; y < 1024; y++) {
+            if ((page_directory->pages[i][y] & 7) == 7) {
+                uint32_t phys = alloc_physical_page();
+                map_virtual_to_physical((uint32_t)buffer, phys);
+                debug("fork, page %h copied\n", ((i * 0x400 + y) * 0x1000));
+                memcpy(buffer, (void*)((i * 0x400 + y) * 0x1000), 0x1000);
+                p->page_dir->pages[i][y] = phys | 7;
+            } else {
+                p->page_dir->pages[i][y] = 2;
+            }
+        }
+    }
+    map_virtual_to_physical((uint32_t)buffer, buffer_phys_back);
+    kfree(buffer_chunk);
+
     memcpy(p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs), r, sizeof(struct regs));
     p->threads[0].regs.esp = (uint32_t)p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs);
     p->threads[0].regs.ebp = p->threads[0].regs.esp;
     p->threads[0].regs.eip = (uint32_t)&return_to_userspace;
-
     struct regs *new = (struct regs*)p->threads[0].regs.esp;
     new->eax = 0;
-
+    int child_pid = p->id;
     cli();
     add_to_list(processes, p);
     sti();
-    while(1){}
-    return get_pid();
+    return child_pid;
+}
+
+int wait_pid(int pid, int *status, int options)
+{
+    while(1) {
+        if (pid == -1) {
+            cli();
+            struct process *iterator = processes;
+            while(iterator != NULL)
+            {
+                if (iterator->parent_id == current_process->id && iterator->state == PROCESS_TERMINATED)
+                {
+                    delete_from_list((void*)&processes, iterator);
+                    break;
+                }
+                iterator = (struct process*)iterator->list.next;
+            }
+            sti();
+
+            if (iterator == NULL) {
+                if (options & WNOHANG) {
+                    return -ECHILD;
+                }
+                continue;
+            } else {
+                debug("return dead\n");
+                //TODO: FREE PROCESS MEMORY
+                *status = 0x7f;
+
+                return iterator->id;
+            }
+        }
+    }
+}
+
+struct process *proc_by_id(int pid)
+{
+    cli();
+    struct process *iterator = processes;
+    while(iterator != NULL)
+    {
+        if (iterator->id == pid)
+        {
+            sti();
+            return iterator;
+        }
+        iterator = (struct process*)iterator->list.next;
+    }
+    sti();
+    return NULL;
 }
 
 void init_multitasking()
 {
     struct process *process = kmalloc(sizeof(struct process));
     memset((void*)process, 0, sizeof(struct process));
+    process->signals_queue = create_ring(100);
+    process->state = PROCESS_RUNNING;
     process->next_thread_id = 1;
     process->id = __sync_fetch_and_add(&next_pid, 1);
     process->page_dir_base = (void*)PAGE_DIRECTORY_VIRTUAL;
@@ -226,7 +314,7 @@ void switch_task()
     struct process *ps = current_process;
     // TODO: save fpu state
     while(true) {
-        if (th == NULL) {
+        if (th == NULL || ps->state == PROCESS_TERMINATED) {
             ps = (struct process*)current_process->list.next;
             if (ps == 0) {
                 ps = processes;

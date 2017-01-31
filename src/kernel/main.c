@@ -116,6 +116,8 @@ void main()
     setup_syscalls();
     init_io();
     print_vfs_tree(NULL, 0);
+    symlink("/bin", "/mount/NO NAME/bin");
+    symlink("/home", "/mount/NO NAME/home");
     exec("/mount/NO NAME/bin/dash");
     debug("[kernel] end of kernel main\n");
 

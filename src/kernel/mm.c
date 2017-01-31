@@ -211,7 +211,6 @@ uint32_t alloc_physical_range(uint16_t count)
     return 0;
 }
 
-
 void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
 {
     uint32_t dir = (virtual >> 22);
@@ -219,8 +218,8 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
 
     if ((page_directory->directory[dir] & 1) == 0)
     {
-        page_directory->pages[dir] = kmalloc(0x1000 + 0x1000);
-        page_directory->pages[dir] = (uint32_t*)PAGE_ALIGN((uint32_t)page_directory->pages[dir]);
+        page_directory->page_chunks[dir] = kmalloc(0x1000 + 0x1000);
+        page_directory->pages[dir] = (uint32_t*)PAGE_ALIGN((uint32_t)page_directory->page_chunks[dir]);
         for(uint32_t i = 0; i < 1024; i++)
         {
             page_directory->pages[dir][i] = 2;

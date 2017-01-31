@@ -62,10 +62,18 @@ static struct vfs_node *lookup(char *path)
     char *token = strtok_r(path, "/", &path);
     struct vfs_node *node = vfs_root;
     while (token != NULL && strlen(token) > 0 && node != NULL) {
+        if ((node->mode & S_IFLNK) == S_IFLNK) {
+            char *str = strdup(node->obj);
+            node = lookup(str);
+            kfree(str);
+        }
+
         if ((node->mode & S_IFDIR) != S_IFDIR) {
             return NULL;
         }
+
         node = node->ops->lookup(node, token);
+
         if (node == NULL) {
             return NULL;
         }
@@ -220,6 +228,34 @@ int mkdir(char *path)
     mutex_release(&vfs_mutex);
 cleanup:
     kfree(canonical);
+    return err;
+}
+
+int symlink(char *path, char *target_path)
+{
+    int err = 0;
+    char *canonical = kmalloc(MAX_PATH_LENGTH);
+    err = canonicalize_path(path, canonical, MAX_PATH_LENGTH);
+    if (err) {
+        goto cleanup;
+    }
+    char *target = kmalloc(MAX_PATH_LENGTH);
+    err = canonicalize_path(target_path, target, MAX_PATH_LENGTH);
+    if (err) {
+        goto cleanup;
+    }
+
+    uint32_t len = strlen(target);
+    char *save = kmalloc(len);
+    memcpy(save, target, len);
+
+    mutex_lock(&vfs_mutex);
+    err = create_vfs_node(canonical, S_IFLNK, NULL, save, NULL);
+    mutex_release(&vfs_mutex);
+cleanup:
+    kfree(canonical);
+    if (target > 0) kfree(target);
+    if (save > 0 && err) kfree(save);
     return err;
 }
 

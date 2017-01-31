@@ -46,6 +46,10 @@ int execve(char *path, char **argv)
         argc++;
     }
 
+    if (size + sizeof(uint32_t*) * argc > 0x1000) {
+        return -E2BIG;
+    }
+
     // copy params to tmp storage
     void *params = kmalloc(size);
     void *cur = params;
@@ -79,19 +83,38 @@ int execve(char *path, char **argv)
     }
     // restore brk because it's modified by last map_virtual_to_physical calls
     current_process->brk = brk;
+    char **argv_new = current_process->brk;
+    uint32_t offset = 0;
+    uint32_t phys = alloc_physical_page();
+    map_virtual_to_physical((uint32_t)argv_new, phys);
+    char *rows = (void*)argv_new + sizeof(char*) * (argc + 1); // +1 for empty NULL param
+    for(uint32_t i = 0; i < argc; i++) {
+        uint32_t size = strlen(params + offset) + 1;
+        memcpy(rows, params + offset, size);
+        argv_new[i] = rows;
+        rows += size;
+        offset += size;
+    }
+    argv_new[argc] = 0;
+    kfree(params);
+
+    for(uint32_t i = 0; i < argc; i++) {
+        debug("%s\n", argv_new[i]);
+    }
 
     open_process_std();
     set_fg_pid(get_pid());
 
     set_kernel_stack((uint32_t)current_thread->stack_mem + KERNEL_STACK_SIZE);
 
-    //while(1){}
-    //PUSH_STACK(x, envp);
-    //PUSH_STACK(x, argv);
-    //PUSH_STACK(x, argc);
-    //x-=4; // return address
+    uint32_t user_stack = USERSPACE_STACK_TOP;
 
-    enter_userspace((uint32_t)entry_point, USERSPACE_STACK_TOP-0x400);
+    PUSH_STACK(user_stack, envp);
+    PUSH_STACK(user_stack, argv_new);
+    PUSH_STACK(user_stack, argc);
+    user_stack -= 4; // return address
+
+    enter_userspace((uint32_t)entry_point, user_stack);
     assert(true, "something isn't ok with execve -> unreachable point");
     return 0;
 }

@@ -56,6 +56,7 @@ typedef struct page_directory
     // must be page aligned
     uint32_t directory[1024];
     uint32_t *pages[1024];
+    uint32_t *page_chunks[1024];
 } page_directory_t;
 
 #define KERNEL_SPACE_ADDR 0xC0000000

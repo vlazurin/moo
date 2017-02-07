@@ -1,5 +1,5 @@
 #include "screen.h"
-#include "debug.h"
+#include "log.h"
 #include "vfs.h"
 #include "string.h"
 

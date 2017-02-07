@@ -1,7 +1,7 @@
 #include "vfs.h"
 #include "mutex.h"
 #include "rand.h"
-#include "debug.h"
+#include "log.h"
 
 mutex_t mutex = 0;
 pcg32_random_t rand = { 0xF15B48A0C371D4EBULL, 0xDB4592AF6B9C28F2ULL };
@@ -20,7 +20,6 @@ int urandom_read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
     uint32_t done = 0;
     uint8_t shift = 0;
     uint32_t random = get_random();
-    debug("[rnd] generated random %i\n", random);
     while(done < size)
     {
         *(uint8_t*)buf = ((random >> shift) & 0xFF);

@@ -3,7 +3,7 @@
 #include "liballoc.h"
 #include "arp.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 
 #define DHCP_RANDOM_NUMBER 0x1863A3F6
 #define DHCP_OPTIONS_SIZE 100
@@ -67,7 +67,7 @@ uint8_t configure_dhcp(network_device_t *net_dev)
     uint8_t result = create_udp_socket(net_dev, 68, &socket);
     if (result != UDP_SOCKET_SUCCESS)
     {
-        debug("[dhcp] can't create udp socket, status: %i\n", result);
+        //debug("[dhcp] can't create udp socket, status: %i\n", result);
         return DHCP_SOCKET_ERROR;
     }
 
@@ -100,7 +100,7 @@ uint8_t configure_dhcp(network_device_t *net_dev)
     result = receive_udp_packet(socket, 3000, (void*)&response);
     if (result != UDP_SOCKET_SUCCESS)
     {
-        debug("[dhcp] no reply from server\n");
+        //debug("[dhcp] no reply from server\n");
         release_udp_socket(socket);
         kfree(header);
         kfree(response);
@@ -110,7 +110,7 @@ uint8_t configure_dhcp(network_device_t *net_dev)
     uint8_t valid = validate_dhcp_response(response, DHCP_TYPE_OFFER);
     if (valid != DHCP_OK)
     {
-        debug("[dhcp] configure error: DISCROVER response error %i\n", valid);
+        //debug("[dhcp] configure error: DISCROVER response error %i\n", valid);
         release_udp_socket(socket);
         kfree(header);
         kfree(response);
@@ -151,7 +151,7 @@ uint8_t configure_dhcp(network_device_t *net_dev)
     result = receive_udp_packet(socket, 3000, (void*)&response);
     if (result != UDP_SOCKET_SUCCESS)
     {
-        debug("[dhcp] no reply from server\n");
+        //debug("[dhcp] no reply from server\n");
         release_udp_socket(socket);
         kfree(header);
         kfree(response);
@@ -161,7 +161,7 @@ uint8_t configure_dhcp(network_device_t *net_dev)
     valid = validate_dhcp_response(response, DHCP_TYPE_ACK);
     if (valid != DHCP_OK)
     {
-        debug("[dhcp] configure error: DISCROVER response error %i\n", valid);
+        //debug("[dhcp] configure error: DISCROVER response error %i\n", valid);
         release_udp_socket(socket);
         kfree(header);
         kfree(response);
@@ -172,7 +172,7 @@ uint8_t configure_dhcp(network_device_t *net_dev)
     uint8_t arp_result = get_mac_by_ip(net_dev, &my_ip, &mac);
     if (arp_result != 0)
     {
-        debug("[dhcp] IP address assigned by DHCP server is already in use.\n");
+        //debug("[dhcp] IP address assigned by DHCP server is already in use.\n");
         release_udp_socket(socket);
         kfree(header);
         kfree(response);

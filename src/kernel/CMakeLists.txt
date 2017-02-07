@@ -55,7 +55,6 @@ set(SOURCE_FILES
         ./drivers/video/vesa/vesa_lfb.c
         ./drivers/network/e1000/e1000.c
         ../shared/sources/system.c
-        ../shared/sources/debug.c
         ../shared/sources/string.c
         ../shared/sources/port.c
         ../shared/sources/stdlib.c

@@ -2,7 +2,7 @@
 #include "buffer.h"
 #include "liballoc.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 
 uint8_t buffer_add(buffer_t *buffer, void *payload, uint32_t size)
 {

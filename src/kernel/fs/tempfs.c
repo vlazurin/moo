@@ -3,7 +3,7 @@
 #include "liballoc.h"
 #include "system.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 
 static struct vfs_super* read_super(struct ata_device *dev);
 struct vfs_node *spawn_node(struct vfs_super *super, char *name, mode_t mode);

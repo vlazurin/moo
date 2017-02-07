@@ -1,7 +1,7 @@
 #include "vfs.h"
 #include "mutex.h"
 #include "port.h"
-#include "debug.h"
+#include "log.h"
 #include "buffer.h"
 #include "irq.h"
 

@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include "list.h"
-#include "debug.h"
+#include "log.h"
 #include "liballoc.h"
 #include "string.h"
 #include "system.h"

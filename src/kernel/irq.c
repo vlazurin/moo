@@ -1,5 +1,5 @@
 #include "irq.h"
-#include "debug.h"
+#include "log.h"
 #include "task.h"
 #include "port.h"
 #include "string.h"
@@ -101,7 +101,7 @@ void irq_handler(struct regs *r)
    if (irq_handlers[r->int_num] != NULL) {
        irq_handlers[r->int_num](r);
    } else if (r->int_num < 32) {
-       debug("unhandled CPU exception: %s, EIP: %h\n", ex_messages[r->int_num], r->eip);
+       log(KERN_FATAL, "unhandled CPU exception: %s, EIP: %x\n", ex_messages[r->int_num], r->eip);
        hlt();
    }
 

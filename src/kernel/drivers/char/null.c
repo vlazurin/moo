@@ -1,5 +1,5 @@
 #include "vfs.h"
-#include "debug.h"
+#include "log.h"
 
 // TODO: must be uint64_t but debug() doesn't support uint64_t
 uint32_t nulled_count = 0;
@@ -7,7 +7,6 @@ uint32_t nulled_count = 0;
 static int write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     __sync_add_and_fetch(&nulled_count, size);
-    debug("[null] received %i bytes\n", nulled_count);
     return size;
 }
 

@@ -13,9 +13,9 @@ set(SOURCE_FILES
         head.s
         main.c
         bios.c
+        debug.c
         ../shared/sources/string.c
         ../shared/sources/system.c
-        ../shared/sources/debug.c
         ../shared/sources/port.c
         ../shared/sources/stdlib.c
         lba.c

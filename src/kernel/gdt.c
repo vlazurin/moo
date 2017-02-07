@@ -1,4 +1,4 @@
-#include "debug.h"
+#include "log.h"
 #include "mm.h"
 #include "string.h"
 #include "tss.h"

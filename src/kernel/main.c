@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include "irq.h"
 #include "system.h"
-#include "debug.h"
+#include "log.h"
 #include "string.h"
 #include "screen.h"
 #include "mm.h"
@@ -18,6 +18,7 @@
 #include "tempfs.h"
 #include "fat16fs.h"
 #include "procfs.h"
+#include "log.h"
 #include "elf.h"
 #include "tty.h"
 #include "kb.h"
@@ -39,17 +40,16 @@ uint8_t exec(char *path);
 
 void main()
 {
-    init_debug_serial();
+    init_early_log();
 
     uint32_t bss_size = &bss_end - &bss_start;
-    if (bss_size > KERNEL_BSS_SIZE)
-    {
-        debug("Kernel BSS %h doesn't fit allocated space %h", bss_size, KERNEL_BSS_SIZE);
+    if (bss_size > KERNEL_BSS_SIZE) {
+        log(KERN_FATAL, "kernel BSS (%x) doesn't fit allocated space (%x)", bss_size, KERNEL_BSS_SIZE);
         hlt();
     }
 
     memset(&bss_start, 0, bss_size);
-
+    asm("finit"); // because bochs is very annoying about "MSDOS compatibility FPU exception"
     init_irq();
     init_memory_manager(kernel_params);
 
@@ -71,10 +71,8 @@ void main()
 
     init_tempfs();
     uint8_t error = mount_fs("/", "tempfs", NULL);
-
-    if (error)
-    {
-        debug("[kernel] Can't mount root partition, error code: %i\n", error);
+    if (error) {
+        log(KERN_FATAL, "can't mount root partition (errno: %i)\n", error);
         hlt();
     }
     mkdir("/dev");
@@ -115,11 +113,9 @@ void main()
     }*/
     setup_syscalls();
     init_io();
-    print_vfs_tree(NULL, 0);
     symlink("/bin", "/mount/NO NAME/bin");
     symlink("/home", "/mount/NO NAME/home");
-    exec("/mount/NO NAME/bin/dash");
-    debug("[kernel] end of kernel main\n");
-
+    //symlink("/etc", "/mount/NO NAME/etc");
+    exec("/bin/dash");
     while(true){}
 }

@@ -2,7 +2,7 @@
 #include "errno.h"
 #include "liballoc.h"
 #include "timer.h"
-#include "debug.h"
+#include "log.h"
 #include "string.h"
 #include "mutex.h"
 #include "pit.h"
@@ -29,7 +29,7 @@ static void terminate_thread()
     cli();
     current_thread->state = THREAD_TERMINATED;
     sti();
-    debug("[kernel] (PID %i) thread %i state is TERMINATED\n", current_process->id, current_thread->id);
+    log(KERN_INFO, "(PID %i) thread %i terminated\n", current_process->id, current_thread->id);
     force_task_switch();
 }
 
@@ -39,7 +39,8 @@ static void thread_header(void *entry_point, uint32_t arg)
     void (*func)(uint32_t) = entry_point;
     func(arg);
     terminate_thread();
-    assert(false, "Thread isn't terminated, system is unstable");
+    assert(false && "thread isn't terminated, system is unstable.");
+    while(true);
 }
 
 static struct thread *create_thread()
@@ -59,8 +60,7 @@ void stop_process()
 {
     cli();
     struct thread *iterator = current_process->threads;
-    while(iterator != 0)
-    {
+    while(iterator != 0) {
         iterator->state = THREAD_TERMINATED;
         iterator = (struct thread*)iterator->list.next;
     }
@@ -147,11 +147,9 @@ void set_fg_pid(uint32_t pid)
     assert((uint32_t)processes >= KERNEL_SPACE_ADDR);
     cli();
     struct process *iterator = processes;
-    while(iterator != 0)
-    {
-        if (iterator->id == pid)
-        {
-            debug("foreground process change, new id %i\n", iterator->id);
+    while(iterator != 0) {
+        if (iterator->id == pid) {
+            log(KERN_INFO, "foreground PID %i\n", iterator->id);
             fg_process = iterator;
             break;
         }
@@ -167,10 +165,12 @@ uint32_t get_fg_pid()
 }
 
 extern void return_to_userspace();
-int fork(struct regs *r)
+int fork()
 {
     struct process *p = create_process(0, 0);
     p->parent_id = get_pid();
+    strcpy(p->cur_dir, current_process->cur_dir);
+
     for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
         if (p->files[i] != NULL) {
             p->files[i] = kmalloc(sizeof(vfs_file_t));
@@ -195,7 +195,6 @@ int fork(struct regs *r)
             if ((page_directory->pages[i][y] & 7) == 7) {
                 uint32_t phys = alloc_physical_page();
                 map_virtual_to_physical((uint32_t)buffer, phys);
-                debug("fork, page %h copied\n", ((i * 0x400 + y) * 0x1000));
                 memcpy(buffer, (void*)((i * 0x400 + y) * 0x1000), 0x1000);
                 p->page_dir->pages[i][y] = phys | 7;
             } else {
@@ -206,7 +205,7 @@ int fork(struct regs *r)
     map_virtual_to_physical((uint32_t)buffer, buffer_phys_back);
     kfree(buffer_chunk);
 
-    memcpy(p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs), r, sizeof(struct regs));
+    memcpy(p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs), current_process->user_regs, sizeof(struct regs));
     p->threads[0].regs.esp = (uint32_t)p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs);
     p->threads[0].regs.ebp = p->threads[0].regs.esp;
     p->threads[0].regs.eip = (uint32_t)&return_to_userspace;
@@ -225,10 +224,8 @@ int wait_pid(int pid, int *status, int options)
         if (pid == -1) {
             cli();
             struct process *iterator = processes;
-            while(iterator != NULL)
-            {
-                if (iterator->parent_id == current_process->id && iterator->state == PROCESS_TERMINATED)
-                {
+            while(iterator != NULL) {
+                if (iterator->parent_id == current_process->id && iterator->state == PROCESS_TERMINATED) {
                     delete_from_list((void*)&processes, iterator);
                     break;
                 }
@@ -242,10 +239,8 @@ int wait_pid(int pid, int *status, int options)
                 }
                 continue;
             } else {
-                debug("return dead\n");
                 //TODO: FREE PROCESS MEMORY
-                *status = 0x7f;
-
+                *status = 0x0;
                 return iterator->id;
             }
         }
@@ -256,10 +251,8 @@ struct process *proc_by_id(int pid)
 {
     cli();
     struct process *iterator = processes;
-    while(iterator != NULL)
-    {
-        if (iterator->id == pid)
-        {
+    while(iterator != NULL) {
+        if (iterator->id == pid) {
             sti();
             return iterator;
         }

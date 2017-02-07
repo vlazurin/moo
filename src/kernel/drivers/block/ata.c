@@ -4,7 +4,7 @@
 #include "port.h"
 #include "liballoc.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 
 static void ide_delay(struct ide_channel *channel)
 {
@@ -36,7 +36,7 @@ static uint8_t get_ata_status(struct ide_channel *channel)
 static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint8_t sectors)
 {
     if (lba + sectors >= dev->identify.sectors_28) {
-        debug("LBA >= disk sectors count");
+        log(KERN_INFO, "ata read failed (LBA address is too big)");
         return -1;
     }
 
@@ -66,7 +66,7 @@ static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint
 static int write_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint8_t sectors)
 {
     if (lba + sectors >= dev->identify.sectors_28) {
-        debug("LBA >= disk sectors count");
+        log(KERN_INFO, "ata write failed (LBA address is too big)");
         return -1;
     }
 
@@ -95,7 +95,7 @@ static int read(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     uint32_t total = ALIGN(size, SECTOR_SIZE);
     if (total / SECTOR_SIZE > 256) {
-        debug("can't read more than 256 sectors\n");
+        log(KERN_INFO, "ata read failed (can't read more than 256 sectors)");
         return 0;
     }
 
@@ -114,7 +114,7 @@ static int write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *offset)
 {
     uint32_t total = ALIGN(size, SECTOR_SIZE);
     if (total / SECTOR_SIZE > 256) {
-        debug("can't write more than 256 sectors\n");
+        log(KERN_INFO, "ata write failed (can't write more than 256 sectors)");
         return 0;
     }
 

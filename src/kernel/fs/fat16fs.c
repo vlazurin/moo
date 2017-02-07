@@ -4,7 +4,7 @@
 #include "string.h"
 #include "ata.h"
 #include "pci.h"
-#include "debug.h"
+#include "log.h"
 #include "fat16fs.h"
 #include "errno.h"
 #include <stdbool.h>
@@ -47,7 +47,7 @@ static uint16_t cluster_to_sector(struct boot_sector *bs, uint16_t cluster)
 static int read(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos)
 {
     if (*pos >= file->node->size) {
-        debug("fat 16 read: EINVAL, pos %i\n", *pos);
+        log(KERN_INFO, "fat16 read: wrong position %i\n", *pos);
         return -EINVAL;
     }
     struct fat16_super_private *private = file->node->super->private;
@@ -64,7 +64,7 @@ static int read(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos)
     while(readed < size && cluster <= 0xFFF8) {
         if (cluster == 0x0 || cluster == 0x1 || (cluster >= 0xFFF0 && cluster <= 0xFFF6) || cluster == 0xFFF7)
         {
-            debug("wrong FAT16 cluster %h\n", cluster);
+            log(KERN_FATAL, "wrong FAT16 cluster %x\n", cluster);
             hlt();
         }
 
@@ -142,9 +142,8 @@ static int preload_node(struct vfs_node *node)
         void *cur = entry;
         uint16_t cluster = (uint16_t)(uint32_t)node->obj;
         while(cluster <= 0xFFF8) {
-            if (cluster == 0x0 || cluster == 0x1 || (cluster >= 0xFFF0 && cluster <= 0xFFF6) || cluster == 0xFFF7)
-            {
-                debug("wrong FAT16 cluster %h\n", cluster);
+            if (cluster == 0x0 || cluster == 0x1 || (cluster >= 0xFFF0 && cluster <= 0xFFF6) || cluster == 0xFFF7) {
+                log(KERN_FATAL, "wrong FAT16 cluster %x\n", cluster);
                 hlt();
             }
 
@@ -213,7 +212,7 @@ void init_fat16fs()
     fs->ops = &fat16fs_ops;
     int err = register_fs(fs);
     if (err) {
-        debug("Can't register fat16fs in system, error: %i\n", err);
+        log(KERN_ERR, "fat16 fs registration failed, errno %i\n", err);
         return;
     }
 
@@ -227,7 +226,7 @@ void init_fat16fs()
                         struct boot_sector *bs = kmalloc(SECTOR_SIZE);
                         int err = ide->channels[c].devices[d]->read(ide->channels[c].devices[d], bs, 0, 1);
                         if (err) {
-                            debug("init_fat16fs: ata read failed\n");
+                            log(KERN_ERR, "fat16 init failed, can't read from ata device\n");
                             kfree(bs);
                             continue;
                         }

@@ -1,5 +1,4 @@
 #include "../include/string.h"
-#include "../include/debug.h"
 #include "../include/stdlib.h"
 
 void strcpy(char *s1, char *s2)
@@ -24,7 +23,6 @@ char *strrchr(char *s, int ch)
 
 void *memset(void *s, int c, size_t n)
 {
-    assert(n > 0);
     unsigned char* p=s;
     while(n--)
         *p++ = (unsigned char)c;

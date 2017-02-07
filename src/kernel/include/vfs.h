@@ -23,10 +23,10 @@ typedef struct vfs_file_operations vfs_file_operations_t;
 typedef struct vfs_node_operations vfs_node_operations_t;
 
 
-typedef uint32_t gid_t;
-typedef uint32_t uid_t;
-typedef uint32_t dev_t;
-typedef uint32_t ino_t;
+typedef uint16_t gid_t;
+typedef uint16_t uid_t;
+typedef uint16_t dev_t;
+typedef uint16_t ino_t;
 typedef uint32_t mode_t;
 typedef unsigned short nlink_t;
 typedef long off_t;
@@ -38,6 +38,14 @@ struct timespec {
   time_t  tv_sec;   /* Seconds */
   long    tv_nsec;  /* Nanoseconds */
 };
+#define	_IFMT		0170000	/* type of file */
+#define		_IFDIR	0040000	/* directory */
+#define		_IFCHR	0020000	/* character special */
+#define		_IFBLK	0060000	/* block special */
+#define		_IFREG	0100000	/* regular */
+#define		_IFLNK	0120000	/* symbolic link */
+#define		_IFSOCK	0140000	/* socket */
+#define		_IFIFO	0010000	/* fifo */
 
 #define S_IFMT 0170000	/* type of file */
 #define S_IFDIR 0040000	/* directory */
@@ -48,7 +56,9 @@ struct timespec {
 #define S_IFSOCK 0140000	/* socket */
 #define S_IFIFO 0010000	/* fifo */
 #define S_MNT 0160000 /* mount point */
-
+#define	S_ISREG(m)	(((m)&_IFMT) == _IFREG)
+#define	S_ISDIR(m)	(((m)&_IFMT) == _IFDIR)
+#define	S_ISLNK(m)	(((m)&_IFMT) == _IFLNK)
 #define F_DUPFD 0
 #define F_GETFD 1
 #define F_SETFD 2
@@ -154,6 +164,5 @@ int fstat(file_descriptor_t fd, struct stat *buf);
 int fcntl(int fd, int cmd, int arg);
 int chdir(char *path);
 int symlink(char *path, char *target_path);
-
-void print_vfs_tree(struct vfs_node *node, uint32_t level);
+int lseek(file_descriptor_t fd, int offset, int whence);
 #endif

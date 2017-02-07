@@ -1,6 +1,6 @@
 #include "kb.h"
 #include "port.h"
-#include "debug.h"
+#include "log.h"
 #include "vfs.h"
 #include "buffer.h"
 #include "irq.h"

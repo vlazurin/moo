@@ -1,6 +1,6 @@
 #include "network.h"
 #include "ip.h"
-#include "debug.h"
+#include "log.h"
 #include "arp.h"
 #include "string.h"
 
@@ -36,7 +36,7 @@ void send_ip4_packet(network_device_t *net_dev, ip4_addr_t* destination, uint8_t
     {
         char addr[16];
         ip4_to_str(destination, addr);
-        debug("[ip] MAC address not found for %s\n", addr);
+        //debug("[ip] MAC address not found for %s\n", addr);
         return;
     }
     ip_packet->eth.destination = destination_mac;

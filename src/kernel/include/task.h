@@ -46,6 +46,7 @@ struct process
     void *page_dir_base;
     void *brk;
     char cur_dir[MAX_PATH_LENGTH];
+    struct regs *user_regs;
 };
 
 extern struct process *current_process;
@@ -60,8 +61,9 @@ void schedule_process(struct process *p);
 uint32_t get_fg_pid();
 void set_fg_pid(uint32_t pid);
 uint32_t get_pid();
-int fork(struct regs *r);
+int fork();
 void stop_process();
 struct process *proc_by_id(int pid);
 int wait_pid(int pid, int *status, int options);
+int execve(char *path, char **argv, char **envp);
 #endif

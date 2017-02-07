@@ -4,7 +4,7 @@
 #include "task.h"
 #include "liballoc.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 
 #define TCP_SOCKET_BUFFER_SIZE 65535
 #define TCP_SOCKET_RING_SIZE 128
@@ -87,7 +87,7 @@ void process_tcp_packet(network_device_t *net_dev, void* packet)
             char ip_string[16];
             memset(&ip_string, 0, 16);
             ip4_to_str(&tcp_packet->ip.source_ip, ip_string);
-            debug("[tcp] created new socket for income connection from %s:%i\n", ip_string, remote_port);
+            //debug("[tcp] created new socket for income connection from %s:%i\n", ip_string, remote_port);
         }
 
         if (socket == 0)
@@ -95,7 +95,7 @@ void process_tcp_packet(network_device_t *net_dev, void* packet)
             char ip_string[16];
             memset(&ip_string, 0, 16);
             ip4_to_str(&tcp_packet->ip.source_ip, ip_string);
-            debug("[tcp] received packet for unknown socket from %s:%i\n", ip_string, remote_port);
+            //debug("[tcp] received packet for unknown socket from %s:%i\n", ip_string, remote_port);
             mutex_release(&tcp_binders[port]->mutex);
             return;
         }
@@ -105,7 +105,7 @@ void process_tcp_packet(network_device_t *net_dev, void* packet)
         uint8_t result = socket->ring->push(socket->ring, buffer);
         if (result != RING_BUFFER_OK)
         {
-            debug("[tcp] socket ring is full\n");
+            //debug("[tcp] socket ring is full\n");
             hlt();
         }
     }
@@ -129,7 +129,7 @@ void handle_syn_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packet_t *
         char ip_string[16];
         memset(&ip_string, 0, 16);
         ip4_to_str(&socket->remote_host, ip_string);
-        debug("[tcp] connected to remote %s:%i\n", ip_string, socket->remote_port);
+        //debug("[tcp] connected to remote %s:%i\n", ip_string, socket->remote_port);
     }
     else
     {
@@ -151,7 +151,7 @@ void handle_received_payload(tcp_socket_t *socket, uint8_t *reply_flags, tcp_pac
             char ip_string[16];
             memset(&ip_string, 0, 16);
             ip4_to_str(&socket->remote_host, ip_string);
-            debug("[tcp] received %i bytes from remote %s:%i\n", payload_size, ip_string, socket->remote_port);
+            //debug("[tcp] received %i bytes from remote %s:%i\n", payload_size, ip_string, socket->remote_port);
         }
         else
         {
@@ -160,7 +160,7 @@ void handle_received_payload(tcp_socket_t *socket, uint8_t *reply_flags, tcp_pac
             char ip_string[16];
             memset(&ip_string, 0, 16);
             ip4_to_str(&socket->remote_host, ip_string);
-            debug("[tcp] not enough free space in receive_buffer, remote: %s:%i\n", ip_string, socket->remote_port);
+            //debug("[tcp] not enough free space in receive_buffer, remote: %s:%i\n", ip_string, socket->remote_port);
         }
 
         *reply_flags |= TCP_FLAG_ACK;
@@ -180,7 +180,7 @@ void handle_established_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_pa
         char ip_string[16];
         memset(&ip_string, 0, 16);
         ip4_to_str(&socket->remote_host, ip_string);
-        debug("[tcp] received FIN from remote: %s:%i, socket state is CLOSE_WAIT\n", ip_string, socket->remote_port);
+        //debug("[tcp] received FIN from remote: %s:%i, socket state is CLOSE_WAIT\n", ip_string, socket->remote_port);
     }
 }
 
@@ -198,7 +198,7 @@ void handle_last_ask_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packe
         char ip_string[16];
         memset(&ip_string, 0, 16);
         ip4_to_str(&socket->remote_host, ip_string);
-        debug("[tcp] received LAST_ASK from remote: %s:%i, socket is moved to time_wait queue\n", ip_string, socket->remote_port);
+        //debug("[tcp] received LAST_ASK from remote: %s:%i, socket is moved to time_wait queue\n", ip_string, socket->remote_port);
     }
 }
 
@@ -218,7 +218,7 @@ void handle_fin_1_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packet_t
         char ip_string[16];
         memset(&ip_string, 0, 16);
         ip4_to_str(&socket->remote_host, ip_string);
-        debug("[tcp] received LAST_ASK AND FIN from remote: %s:%i, socket is moved to time_wait queue\n", ip_string, socket->remote_port);
+        //debug("[tcp] received LAST_ASK AND FIN from remote: %s:%i, socket is moved to time_wait queue\n", ip_string, socket->remote_port);
     }
 }
 
@@ -236,7 +236,7 @@ void handle_closed_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packet_
         char ip_string[16];
         memset(&ip_string, 0, 16);
         ip4_to_str(&packet->ip.source_ip, ip_string);
-        debug("[tcp] established connection on local port %i with remote %s:%i\n", port, ip_string, bswap16(packet->tcp.source_port));
+        //debug("[tcp] established connection on local port %i with remote %s:%i\n", port, ip_string, bswap16(packet->tcp.source_port));
     }
     else
     {
@@ -250,8 +250,8 @@ void handle_closed_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packet_
         char ip_string[16];
         memset(&ip_string, 0, 16);
         ip4_to_str(&packet->ip.source_ip, ip_string);
-        debug("[tcp] can't establish connection with remote %s:%i, local socket is in closed state, packet flags is %i, binder is_listening %i\n",
-            ip_string, bswap16(packet->tcp.source_port), packet->tcp.flags, tcp_binders[port]->is_listening);
+        //debug("[tcp] can't establish connection with remote %s:%i, local socket is in closed state, packet flags is %i, binder is_listening %i\n",
+        //    ip_string, bswap16(packet->tcp.source_port), packet->tcp.flags, tcp_binders[port]->is_listening);
     }
 }
 
@@ -269,7 +269,7 @@ void handle_fin_2_state(tcp_socket_t *socket, uint8_t *reply_flags, tcp_packet_t
         char ip_string[16];
         memset(&ip_string, 0, 16);
         ip4_to_str(&socket->remote_host, ip_string);
-        debug("[tcp] closing connection with remote %s:%i, local socket moved to TIME_WAIT state\n", ip_string, socket->remote_port);
+        //debug("[tcp] closing connection with remote %s:%i, local socket moved to TIME_WAIT state\n", ip_string, socket->remote_port);
     }
 }
 
@@ -301,7 +301,7 @@ void process_socket_queue(tcp_socket_t **list, void* transmit_payload)
                 char ip_string[16];
                 memset(&ip_string, 0, 16);
                 ip4_to_str(&received_packet->ip.source_ip, ip_string);
-                debug("[tcp] received RST packet from %s:%i\n", ip_string, bswap16(received_packet->tcp.source_port));
+                //debug("[tcp] received RST packet from %s:%i\n", ip_string, bswap16(received_packet->tcp.source_port));
 
                 kfree(received_packet);
 
@@ -368,7 +368,7 @@ void process_socket_queue(tcp_socket_t **list, void* transmit_payload)
             char ip_string[16];
             memset(&ip_string, 0, 16);
             ip4_to_str(&socket->remote_host, ip_string);
-            debug("[tcp] sending FIN confirm to remote: %s:%i, socket is in LAST_ASK state\n", ip_string, socket->remote_port);
+            //debug("[tcp] sending FIN confirm to remote: %s:%i, socket is in LAST_ASK state\n", ip_string, socket->remote_port);
         }
 
         if (socket->state == TCP_CONNECTION_FIN_1)
@@ -381,7 +381,7 @@ void process_socket_queue(tcp_socket_t **list, void* transmit_payload)
                 char ip_string[16];
                 memset(&ip_string, 0, 16);
                 ip4_to_str(&socket->remote_host, ip_string);
-                debug("[tcp] sending FIN confirm to remote: %s:%i, socket is in FIN_2 state\n", ip_string, socket->remote_port);
+                //debug("[tcp] sending FIN confirm to remote: %s:%i, socket is in FIN_2 state\n", ip_string, socket->remote_port);
             }
         }
 
@@ -429,7 +429,7 @@ void process_tcp_data()
                     char ip_string[16];
                     memset(&ip_string, 0, 16);
                     ip4_to_str(&socket->remote_host, ip_string);
-                    debug("[tcp] socket for remote %s:%i removed from TIME_WAIT queue\n", ip_string, socket->remote_port);
+                    //debug("[tcp] socket for remote %s:%i removed from TIME_WAIT queue\n", ip_string, socket->remote_port);
 
                     socket->ring->free(socket->ring);
                     socket->transmit_buffer->free(socket->transmit_buffer);
@@ -445,7 +445,7 @@ void process_tcp_data()
 
     //this code can't be executed... just a failsafe
     kfree(transmit_payload);
-    debug("[tcp] end of process_tcp_data()...\n");
+    //debug("[tcp] end of process_tcp_data()...\n");
 }
 
 void init_tcp_protocol()
@@ -596,7 +596,7 @@ uint8_t tcp_bind(network_device_t* net_dev, uint16_t port, tcp_socket_binder_t *
     memset(tcp_binders[port], 0, sizeof(tcp_socket_binder_t));
     tcp_binders[port]->port = port;
     *out = tcp_binders[port];
-    debug("[tcp] port %i binded\n", port);
+    //debug("[tcp] port %i binded\n", port);
     return TCP_SOCKET_SUCCESS;
 }
 
@@ -644,6 +644,6 @@ uint8_t close_tcp_connection(tcp_socket_t *socket)
 uint8_t tcp_listen(tcp_socket_binder_t *binder)
 {
     binder->is_listening = 1;
-    debug("[tcp] listens on port %i\n", binder->port);
+    //debug("[tcp] listens on port %i\n", binder->port);
     return TCP_SOCKET_SUCCESS;
 }

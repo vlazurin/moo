@@ -1,7 +1,7 @@
 #include "network.h"
 #include "mutex.h"
 #include "liballoc.h"
-#include "debug.h"
+#include "log.h"
 #include "string.h"
 #include "arp.h"
 #include "ip.h"

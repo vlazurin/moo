@@ -1,5 +1,5 @@
 #include "pit.h"
-#include "debug.h"
+#include "log.h"
 #include "system.h"
 #include "port.h"
 #include "irq.h"

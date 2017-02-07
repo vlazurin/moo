@@ -1,5 +1,5 @@
 #include "vfs.h"
-#include "debug.h"
+#include "log.h"
 #include "string.h"
 #include "ring.h"
 #include "liballoc.h"
@@ -14,31 +14,6 @@
 static struct vfs_fs_type *registered_fs[MAX_FS_TYPES_COUNT];
 static vfs_node_t *vfs_root = 0;
 static mutex_t vfs_mutex = 0;
-
-/**
- * Must be used only for debug.
- * Function isn't thread safe.
- */
-void print_vfs_tree(struct vfs_node *node, uint32_t level)
-{
-    if (node == NULL) {
-        node = vfs_root;
-    }
-    if (node != NULL) {
-        for(uint32_t i = 0; i < level; i++) {
-            debug("  ");
-        }
-        debug("%s\n", node->name);
-        struct vfs_node *iterator = node->children;
-        if ((node->mode & S_MNT) == S_MNT) {
-            iterator = ((struct vfs_node*)node->obj)->children;
-        }
-        while(iterator != NULL) {
-            print_vfs_tree(iterator, level + 1);
-            iterator = (struct vfs_node*)iterator->list.next;
-        }
-    }
-}
 
 /**
  * Function isn't thread safe.
@@ -58,17 +33,20 @@ static struct vfs_fs_type *get_fs(char *name)
  */
 static struct vfs_node *lookup(char *path)
 {
-    debug("[vfs] (pid: %i) lookup (%s)\n", get_pid(), path);
+    assert(path != NULL && strlen(path) > 0);
     char *token = strtok_r(path, "/", &path);
     struct vfs_node *node = vfs_root;
     while (token != NULL && strlen(token) > 0 && node != NULL) {
-        if ((node->mode & S_IFLNK) == S_IFLNK) {
+        if (S_ISLNK(node->mode)) {
             char *str = strdup(node->obj);
+            assert(str != NULL && strlen(str) > 0);
             node = lookup(str);
+            if (node == NULL) {
+                return NULL;
+            }
             kfree(str);
         }
-
-        if ((node->mode & S_IFDIR) != S_IFDIR) {
+        if (!S_ISDIR(node->mode)) {
             return NULL;
         }
 
@@ -82,6 +60,12 @@ static struct vfs_node *lookup(char *path)
         }
         token = strtok_r(path, "/", &path);
     }
+    if (S_ISLNK(node->mode)) {
+        char *str = strdup(node->obj);
+        assert(str != NULL && strlen(str) > 0);
+        node = lookup(str);
+        kfree(str);
+    }
     return node;
 }
 
@@ -90,13 +74,11 @@ static struct vfs_node *lookup(char *path)
  */
 int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, void *obj, vfs_node_t **out)
 {
-    debug("[vfs] (pid: %i) create_vfs_node (%s)\n", get_pid(), path);
     if (vfs_root == NULL) {
         return -EFAULT;
     }
     char *chopped = strrchr(path, '/');
     if (chopped == NULL) {
-        debug("create_vfs_node failed because of empty node name\n");
         return -EFAULT;
     }
     *chopped++ = '\0';
@@ -116,7 +98,6 @@ int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, vo
         return -ENOTDIR;
     }
     if (parent->ops == NULL || parent->ops->lookup == NULL) {
-        debug("create_vfs_node failed because parent node has no lookup func\n");
         return -EFAULT;
     }
     if (parent->ops->lookup(parent, chopped) != NULL) {
@@ -128,7 +109,6 @@ int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, vo
 
 int register_fs(struct vfs_fs_type *fs)
 {
-    debug("[vfs] (pid: %i) register fs (%s)\n", get_pid(), fs->name);
     mutex_lock(&vfs_mutex);
     if (get_fs(fs->name) != NULL) {
         mutex_release(&vfs_mutex);
@@ -138,7 +118,6 @@ int register_fs(struct vfs_fs_type *fs)
     for(uint16_t i = 0; i < MAX_FS_TYPES_COUNT; i++) {
         if (registered_fs[i] == NULL) {
             registered_fs[i] = fs;
-            debug("[vfs] filesystem type registration: %s\n", fs->name);
             mutex_release(&vfs_mutex);
             return 0;
         }
@@ -153,7 +132,6 @@ static int canonicalize_path(char *path, char *out, uint32_t size)
     char *copy = strdup(path);
     ring_t *ring = create_ring(MAX_PATH_DEPTH);
     int err = 0;
-
     char *token;
 
     if (copy[0] != '/') {
@@ -205,7 +183,6 @@ static int canonicalize_path(char *path, char *out, uint32_t size)
         part = ring->pop(ring);
     }
     *out = '\0';
-
 cleanup:
     kfree(copy);
     while(ring->pop(ring));
@@ -215,7 +192,6 @@ cleanup:
 
 int mkdir(char *path)
 {
-    debug("[vfs] (pid: %i) mkdir (%s)\n", get_pid(), path);
     int err = 0;
     char *canonical = kmalloc(MAX_PATH_LENGTH);
     err = canonicalize_path(path, canonical, MAX_PATH_LENGTH);
@@ -245,9 +221,19 @@ int symlink(char *path, char *target_path)
         goto cleanup;
     }
 
-    uint32_t len = strlen(target);
+    struct stat sb;
+    err = stat_fs(target, &sb);
+    if (err) {
+        goto cleanup;
+    }
+    if ((sb.st_mode & S_IFDIR) != S_IFDIR) {
+        err = -ENOTDIR;
+        goto cleanup;
+    }
+
+    uint32_t len = strlen(target) + 1;
     char *save = kmalloc(len);
-    memcpy(save, target, len);
+    strcpy(save, target);
 
     mutex_lock(&vfs_mutex);
     err = create_vfs_node(canonical, S_IFLNK, NULL, save, NULL);
@@ -256,6 +242,7 @@ cleanup:
     kfree(canonical);
     if (target > 0) kfree(target);
     if (save > 0 && err) kfree(save);
+    if (err) log(KERN_DEBUG, "symlink error (%i)\n", err);
     return err;
 }
 
@@ -293,7 +280,7 @@ file_descriptor_t sys_open(char *path)
 {
     mutex_lock(&vfs_mutex);
     int err = 0;
-    vfs_file_t *file = 0;
+    vfs_file_t *file = NULL;
     char *canonical = kmalloc(MAX_PATH_LENGTH);
     err = canonicalize_path(path, canonical, MAX_PATH_LENGTH);
     if (err) {
@@ -388,7 +375,6 @@ int fcntl(int fd, int cmd, int arg)
             return current_process->files[fd]->flags = arg;
         break;
         default:
-            debug("unknown fcntl cmd %i\n", cmd);
             return -EINVAL;
         break;
     }
@@ -425,6 +411,7 @@ mutex_cleanup:
     mutex_release(&vfs_mutex);
 cleanup:
     kfree(canonical);
+    if (err) log(KERN_DEBUG, "PID %i stat_fs error (%i) for \"%s\"\n", get_pid(), err, path);
     return err;
 }
 
@@ -453,7 +440,6 @@ int mount_fs(char *path, char *fs_name, struct ata_device *dev)
             goto mutex_cleanup;
         }
         vfs_root = local_root;
-        debug("[vfs] vfs_root initialized\n");
     } else {
         err = create_vfs_node(canonical, S_MNT, NULL, local_root, NULL);
     }
@@ -471,23 +457,45 @@ int chdir(char *path)
 
     int err = 0;
     char *canonical = kmalloc(MAX_PATH_LENGTH);
+    char *cwd = NULL;
     err = canonicalize_path(path, canonical, MAX_PATH_LENGTH);
     if (err) {
         goto cleanup;
     }
 
-    struct stat st;
-    err = stat_fs(path, &st);
-    if (err) {
+    cwd = strdup(canonical);
+    vfs_node_t *node = lookup(canonical);
+    if (node == NULL) {
+        err = -ENOENT;
         goto cleanup;
     }
-    if ((st.st_mode & S_IFDIR) != S_IFDIR) {
+    if (S_ISDIR(node->mode) == false) {
         err = -ENOTDIR;
         goto cleanup;
     }
-    strcpy(current_process->cur_dir, path);
+    strcpy(current_process->cur_dir, cwd);
+    log(KERN_DEBUG, "pid %i new pwd is %s\n", get_pid(), current_process->cur_dir);
 
 cleanup:
     kfree(canonical);
+    if(cwd != NULL) kfree(cwd);
+    if (err) log(KERN_DEBUG, "chdir error (%i)\n", err);
     return err;
+}
+
+int lseek(file_descriptor_t fd, int offset, int whence)
+{
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
+        return -EBADF;
+    }
+
+    if (whence == 0) {
+        current_process->files[fd]->pos = offset;
+    } else if (whence == 1) {
+        current_process->files[fd]->pos += offset;
+    } else {
+        current_process->files[fd]->pos = current_process->files[fd]->node->size + offset;
+    }
+
+    return 0;
 }

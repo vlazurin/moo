@@ -2,7 +2,7 @@
 #include "network.h"
 #include "liballoc.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 #include "timer.h"
 #include "mutex.h"
 
@@ -16,7 +16,7 @@ void process_arp_request(network_device_t *net_dev, void *packet)
     if (COMPARE_IP4_ADDR(net_dev->ip4_addr, arp_packet->arp.destination_ip))
     {
         // TODO: must be in separate thread or not wait for packet send, because it lock receive thread
-        debug("[arp] Got ARP request for my IP\n");
+        //debug("[arp] Got ARP request for my IP\n");
         arp_packet_t *reply = kmalloc(sizeof(arp_packet_t));
         memset(reply, 0, sizeof(arp_packet_t));
         reply->arp.hardware_type = bswap16(1);

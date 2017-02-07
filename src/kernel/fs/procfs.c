@@ -1,7 +1,7 @@
 #include "vfs.h"
 #include "liballoc.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 
 //static vfs_node_t *create_root(void *obj);
 static vfs_node_t* lookup(vfs_node_t *node, char *path);
@@ -17,7 +17,6 @@ vfs_node_operations_t procfs_root_node_ops = {
 
 static vfs_node_t* lookup(vfs_node_t *node, char *path)
 {
-    debug("get node!!!\n");
     return 0;
 }
 

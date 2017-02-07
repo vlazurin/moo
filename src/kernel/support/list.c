@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "list.h"
-#include "debug.h"
+#include "log.h"
 
 void delete_from_list(void **list, void* node)
 {

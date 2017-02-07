@@ -1,6 +1,6 @@
 #include "vfs.h"
 #include "task.h"
-#include "debug.h"
+#include "log.h"
 #include "tty.h"
 
 file_descriptor_t stdin;
@@ -11,7 +11,7 @@ static void process_input(void *params)
     file_descriptor_t fd = sys_open("/dev/kb");
     file_descriptor_t tmp = sys_open("/dev/screen");
     if (fd < 0 || tmp < 0) {
-        debug("cant init input\n");
+        log(KERN_FATAL, "can't init input\n");
         hlt();
     }
     uint32_t count;
@@ -48,14 +48,14 @@ void open_process_std()
 {
     file_descriptor_t fd = sys_open("/dev/stdin");
     if (fd < 0) {
-        debug("cant open stdin\n");
+        log(KERN_FATAL, "can't open stdin\n");
     }
     fd = sys_open("/dev/stdout");
     if (fd < 0) {
-        debug("cant open stdout\n");
+        log(KERN_FATAL, "can't open stdout\n");
     }
     fd = sys_open("/dev/stdout");
     if (fd < 0) {
-        debug("cant open stdout (stderr)\n");
+        log(KERN_FATAL, "can't open stderr\n");
     }
 }

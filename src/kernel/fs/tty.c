@@ -4,7 +4,7 @@
 #include "liballoc.h"
 #include "string.h"
 #include "stdlib.h"
-#include "debug.h"
+#include "log.h"
 #include "system.h"
 #include "task.h"
 
@@ -16,7 +16,7 @@ static int slave_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *off
     //debug("pty slave write\n");
     if (!(pty->flags & PTY_FLAG_SLAVE_OPEN))
     {
-        debug("[pty] slave write ignored because pty is closed");
+        //debug("[pty] slave write ignored because pty is closed");
         return 0;
     }
 
@@ -73,7 +73,7 @@ static int master_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *of
                     uint8_t success = pty->in->add(pty->in, pty->input_buffer, pty->input_buffer_pos);
                     if (success != BUFFER_OK)
                     {
-                        debug("[pty] flush to slave failed, buffer is full\n");
+                        //debug("[pty] flush to slave failed, buffer is full\n");
                     }
 
                     pty->input_buffer_pos = 0;
@@ -203,7 +203,7 @@ file_descriptor_t create_pty(char *slave_name)
 
     if (pty->slave == 0)
     {
-        debug("No free pty slaves... seems something goes wrong!");
+        log(KERN_FATAL, "can't create pty slave\n");
         hlt();
     }
 

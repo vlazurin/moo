@@ -1,7 +1,7 @@
 #include "elf.h"
 #include "liballoc.h"
 #include "vfs.h"
-#include "debug.h"
+#include "log.h"
 #include "system.h"
 #include "mm.h"
 #include "string.h"
@@ -17,12 +17,15 @@
 
 int check_elf(char *filename)
 {
+    log(KERN_DEBUG, "check_elf called (\"%s\")\n", filename);
     struct stat st;
     int err = stat_fs(filename, &st);
     if (err) {
+        log(KERN_DEBUG, "check_elf error (%i)\n", err);
         return err;
     }
-    if (st.st_mode != S_IFREG) {
+    if ((st.st_mode & S_IFREG) != S_IFREG) {
+        log(KERN_DEBUG, "check_elf error (%i)\n", -ENOEXEC);
         return -ENOEXEC;
     }
 
@@ -34,10 +37,12 @@ int check_elf(char *filename)
     err = sys_read(fd, sig, 4);
     sys_close(fd);
     if (err < 0) {
+        log(KERN_DEBUG, "check_elf error (%i)\n", err);
         return err;
     }
 
     if (sig[0] != ELF_MAGIC || strncmp(&sig[1], ELF_MAGIC_SIG, 3) != 0) {
+        log(KERN_DEBUG, "check_elf failed (ELF file signature is wrong)\n");
         return -ENOEXEC;
     }
 
@@ -64,31 +69,26 @@ int load_elf(char* filename, void **entry_point)
 
     elf_header_t *header = (elf_header_t*)file;
     if (header->magic != ELF_MAGIC || strncmp((void*)&header->signature, ELF_MAGIC_SIG, 3) != 0) {
-        debug("[elf] loaded file isn't in ELF format\n");
+        log(KERN_INFO, "file isn't in ELF format\n");
         kfree(file);
         return -ENOEXEC;
     }
 
-    if (header->type != ELF_FILE_TYPE_EXEC)
-    {
-        debug("[elf] loaded file has invalid type\n");
+    if (header->type != ELF_FILE_TYPE_EXEC) {
+        log(KERN_INFO, "ELF file has wrong format\n");
         kfree(file);
         return -ENOEXEC;
     }
 
     elf_section_t *section = (elf_section_t*)((uint32_t)header + header->section_table_position);
-    for (uint16_t i = 0; i < header->section_header_entries_count; i++)
-    {
-        if (section->address != 0 && section->type != SHN_UNDEF)
-        {
+    for (uint16_t i = 0; i < header->section_header_entries_count; i++) {
+        if (section->address != 0 && section->type != SHN_UNDEF) {
             //TODO: add section address validation, and restrict loading in kernel area
-            debug("[elf] loading section with type %i at %h, size is %h\n", section->type, section->address, section->size);
+            log(KERN_DEBUG, "loading ELF file section (%i %x %x)\n", section->type, section->address, section->size);
             uint32_t start_page = section->address / 0x1000;
             uint32_t end_page = (section->address + section->size) / 0x1000;
-            do
-            {
-                if (get_physical_address(start_page * 0x1000) == 0)
-                {
+            do {
+                if (get_physical_address(start_page * 0x1000) == 0) {
                     uint32_t phys = alloc_physical_page();
                     map_virtual_to_physical(start_page * 0x1000, phys);
                 }
@@ -96,12 +96,9 @@ int load_elf(char* filename, void **entry_point)
             }
             while(start_page <= end_page);
 
-            if (section->type == SHT_NOBITS)
-            {
+            if (section->type == SHT_NOBITS) {
                 memset((void*)section->address, 0, section->size);
-            }
-            else
-            {
+            } else {
                 memcpy((void*)section->address, (void*)header + section->offset, section->size);
             }
         }

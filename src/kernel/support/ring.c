@@ -2,7 +2,7 @@
 #include "ring.h"
 #include "liballoc.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 
 uint8_t ring_push(ring_t *ring, void *payload)
 {

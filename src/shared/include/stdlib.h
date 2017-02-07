@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-char *itoa(uint32_t value, char *str, int base);
+char *itoa(int value, char *str, int base);
+char *utoa(uint32_t value, char *str, int base);
 int atoi(char *str);
 
 #endif

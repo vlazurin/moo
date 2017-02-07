@@ -5,6 +5,11 @@ void outb(uint16_t port_id, uint8_t value)
     asm volatile("outb %%al, %%dx" :: "d"(port_id), "a"(value));
 }
 
+void outw(uint16_t port_id, uint16_t value)
+{
+    asm volatile("outw %%ax, %%dx" :: "d"(port_id), "a"(value));
+}
+
 void outl(uint16_t port_id, uint32_t value)
 {
     asm volatile("outl %%eax, %%dx" :: "d"(port_id), "a"(value));

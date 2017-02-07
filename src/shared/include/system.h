@@ -5,12 +5,14 @@
 
 #define ALIGN(n, a) (((n) + (a - 1)) & ~(a - 1))
 #define PAGE_ALIGN(n) ALIGN(n, 0x1000)
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+#define ref_count_inc(v) (__sync_add_and_fetch(v->ref_count, 1));
+#define ref_count_dec(v) (__sync_sub_and_fetch(v->ref_count, 1));
 
 uint16_t crc16(uint8_t *data, uint32_t length);
 
-#define GDT_SIZE 3
-
-typedef struct gdt_entry
+struct gdt_entry
 {
     uint16_t limit_low;
     uint16_t base_low;
@@ -18,17 +20,15 @@ typedef struct gdt_entry
     uint8_t  access;
     uint8_t  granularity;
     uint8_t  base_high;
-} __attribute__ ((packed)) gdt_entry_t;
+} __attribute__ ((packed));
 
-typedef struct gdt_register
+struct gdt_register
 {
     uint16_t limit;
     uint32_t base;
-} __attribute__ ((packed)) gdt_register_t;
+} __attribute__ ((packed));
 
-void gdt_set_gate(uint16_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t granularity);
-void gdt_init();
-void set_gdt();
+void gdt_set_gate(struct gdt_entry *entries, uint16_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t granularity);
 
 void hlt();
 
@@ -56,7 +56,13 @@ typedef struct page_directory
     // must be page aligned
     uint32_t directory[1024];
     uint32_t *pages[1024];
+    uint32_t *page_chunks[1024];
 } page_directory_t;
+
+#define KERNEL_SPACE_ADDR 0xC0000000
+// 0x400000 - bytes in 4 mb (one page directory covers 4 mb of memory)
+#define KERNEL_SPACE_START_PAGE_DIR (KERNEL_SPACE_ADDR / 0x400000)
+#define KERNEL_VIRTUAL_ADDR 0xC0100000
 
 #define PAGE_DIRECTORY_TOTAL_SIZE (PAGE_ALIGN(sizeof(page_directory_t)) + 0x400000)
 #define PAGE_DIRECTORY_VIRTUAL (0x100000000 - PAGE_DIRECTORY_TOTAL_SIZE)
@@ -78,6 +84,11 @@ typedef struct page_directory
 #define HARDWARE_SPACE (KERNEL_HEAP - HARDWARE_SPACE_SIZE - 0x1000)
 
 #define KERNEL_BSS_SIZE 0x4000
+
+#define USERSPACE_STACK_SIZE 0x2000
+#define USERSPACE_STACK_TOP (KERNEL_SPACE_ADDR)
+#define USERSPACE_STACK (USERSPACE_STACK_TOP - USERSPACE_STACK_SIZE)
+
 
 typedef struct kernel_load_info
 {

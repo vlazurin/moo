@@ -1,7 +1,7 @@
 #include "timer.h"
 #include "liballoc.h"
 #include "pit.h"
-#include "tasking.h"
+#include "task.h"
 #include <stdbool.h>
 #include "mutex.h"
 
@@ -34,7 +34,7 @@ void process_timers()
 
 void init_timer()
 {
-    create_thread(process_timers, NULL);
+    start_thread(process_timers, 0);
 }
 
 void set_timer(timer_t *timer)

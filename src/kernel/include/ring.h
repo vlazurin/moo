@@ -15,6 +15,8 @@ typedef struct ring
 
     uint8_t (*push)(struct ring*, void*);
     void* (*pop)(struct ring*);
+    void* (*seek)(struct ring*);
+    void* (*head_pop)(struct ring*);
     void (*free)(struct ring*);
 } ring_t;
 

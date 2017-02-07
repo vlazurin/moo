@@ -11,7 +11,7 @@ void debug(const char *format, ...);
 void breakpoint();
 
 #ifdef DEBUG
-#define assert(e) ((e) ? (void)0 : debug("[assert] %s() in %s:%i. Expression: %s\n", __func__, __FILE__, __LINE__, #e))
+#define assert(e) ((e) ? (void)0 : debug("assert failed: %s:%s() line %i. Expression: %s\n", __FILE__, __func__, __LINE__))
 #else
 #define assert(e) ((void)0)
 #endif

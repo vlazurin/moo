@@ -11,6 +11,7 @@ fi
 
 dd if=$DIR/build/bootsector/bootsector of=$DIR/disk_image bs=1 count=3 conv=notrunc #sometimes it truncates drive o.O
 dd if=$DIR/build/bootsector/bootsector of=$DIR/disk_image bs=62 seek=1 skip=1 conv=notrunc
-mcopy -i $DIR/disk_image $DIR/build/loader/loader :: -D o
-mcopy -i $DIR/disk_image $DIR/build/kernel/kernel :: -D o
+mcopy -v -i $DIR/disk_image $DIR/build/loader/loader :: -D o
+mcopy -v -i $DIR/disk_image $DIR/build/kernel/kernel :: -D o
+mcopy -v -s -i $DIR/disk_image $DIR/hdd/* :: -D o
 echo 1 | sudo -S bash -c "echo 1 > /proc/sys/vm/drop_caches"

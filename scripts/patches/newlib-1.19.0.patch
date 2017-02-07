@@ -1,0 +1,48 @@
+diff -c -r ./toolchain/original/newlib-1.19.0/config.sub ./toolchain/newlib-1.19.0/config.sub
+*** ./toolchain/original/newlib-1.19.0/config.sub	Tue Jun  1 20:53:40 2010
+--- ./toolchain/newlib-1.19.0/config.sub	Sat Nov 19 22:46:50 2016
+***************
+*** 1292,1298 ****
+  	# The portable systems comes first.
+  	# Each alternative MUST END IN A *, to match a version number.
+  	# -sysv* is not here because it comes later, after sysvr4.
+! 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+  	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+  	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+  	      | -sym* | -kopensolaris* \
+--- 1292,1298 ----
+  	# The portable systems comes first.
+  	# Each alternative MUST END IN A *, to match a version number.
+  	# -sysv* is not here because it comes later, after sysvr4.
+! 	-gnu* | -moo* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+  	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+  	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+  	      | -sym* | -kopensolaris* \
+diff -c -r ./toolchain/original/newlib-1.19.0/newlib/configure.host ./toolchain/newlib-1.19.0/newlib/configure.host
+*** ./toolchain/original/newlib-1.19.0/newlib/configure.host	Thu Dec  2 21:30:46 2010
+--- ./toolchain/newlib-1.19.0/newlib/configure.host	Sat Nov 19 22:47:39 2016
+***************
+*** 349,354 ****
+--- 349,357 ----
+  # THIS TABLE IS ALPHA SORTED.  KEEP IT THAT WAY.
+
+  case "${host}" in
++   i[3-7]86-*-moo*)
++     sys_dir=moo
++     ;;
+    *-*-cygwin*)
+  	posix_dir=posix
+  	stdio64_dir=stdio64
+diff -c -r ./toolchain/original/newlib-1.19.0/newlib/libc/sys/configure.in ./toolchain/newlib-1.19.0/newlib/libc/sys/configure.in
+*** ./toolchain/original/newlib-1.19.0/newlib/libc/sys/configure.in	Wed Feb 24 22:59:55 2010
+--- ./toolchain/newlib-1.19.0/newlib/libc/sys/configure.in	Sat Nov 19 22:49:06 2016
+***************
+*** 22,27 ****
+--- 22,28 ----
+
+  if test -n "${sys_dir}"; then
+    case ${sys_dir} in
++     moo) AC_CONFIG_SUBDIRS(moo) ;;
+  	a29khif) AC_CONFIG_SUBDIRS(a29khif) ;;
+  	arc) AC_CONFIG_SUBDIRS(arc) ;;
+  	arm) AC_CONFIG_SUBDIRS(arm) ;;

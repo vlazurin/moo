@@ -2,7 +2,7 @@
 #include "udp.h"
 #include "pit.h"
 #include "string.h"
-#include "debug.h"
+#include "log.h"
 #include "liballoc.h"
 #include "mutex.h"
 

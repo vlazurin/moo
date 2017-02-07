@@ -16,7 +16,7 @@ void init_fat()
 
     read_lba(root_dir_start, ROOT_DIRECTORY_SIZE / boot_sector->bytes_per_sector, root_directory);
     // read FAT
-    read_lba(boot_sector->reserved_sectors, 1, fat_table);
+    read_lba(boot_sector->reserved_sectors, boot_sector->sectors_per_fat, fat_table);
 }
 
 uint16_t bytes_per_cluster()
@@ -114,7 +114,7 @@ fat_entry_t *get_fat_entry(const char *filename, const char *extension)
             continue;
         }
 
-        if (strcmp(root_directory[i].filename, name, 8) == 0 && strcmp(root_directory[i].extension, ext, 3) == 0)
+        if (strncmp(root_directory[i].filename, name, 8) == 0 && strncmp(root_directory[i].extension, ext, 3) == 0)
         {
             return &root_directory[i];
         }

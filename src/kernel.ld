@@ -1,8 +1,8 @@
 OUTPUT_FORMAT("binary")
 SECTIONS
 {
-    . = 0xE1C00000;
-    .text : AT(0xE1C00000)
+    . = 0xC0100000;
+    .text : AT(0xC0100000)
     {
         *(.text);
     }

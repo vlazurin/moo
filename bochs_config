@@ -3,11 +3,12 @@ ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
 ata0-master: type=disk, mode=flat, path=./disk_image, model="test model"
 boot: disk
 megs: 256
+com1: enabled=1, mode=file, dev=debug.txt
 magic_break: enabled=1
 port_e9_hack: enabled=1
 cpu: reset_on_triple_fault=0
-pci: enabled=1, chipset=i440fx, slot1=pcivga, slot2=e1000
-e1000: enabled=1, mac=ac:bc:32:ae:83:75, ethmod=fbsd, ethdev=en0
+pci: enabled=1, chipset=i440fx, slot1=pcivga#, slot2=e1000
+#e1000: enabled=1, mac=ac:bc:32:ae:83:75, ethmod=fbsd, ethdev=en0
 error: action=report
 usb_xhci: enabled=1
 info: action=report

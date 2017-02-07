@@ -1,0 +1,79 @@
+diff -c -r ./toolchain/original/binutils-2.22/bfd/config.bfd ./toolchain/binutils-2.22/bfd/config.bfd
+*** ./toolchain/original/binutils-2.22/bfd/config.bfd	Fri Jul 29 01:35:13 2011
+--- ./toolchain/binutils-2.22/bfd/config.bfd	Fri Nov 25 15:12:56 2016
+***************
+*** 660,665 ****
+--- 660,670 ----
+      targ_selvecs="i386pe_vec i386pei_vec bfd_elf32_i386_vec"
+      targ_underscore=yes
+      ;;
++
++   i[3-7]86-*-moo*)
++     targ_defvec=bfd_elf32_i386_vec
++     ;;
++
+    i[3-7]86-none-*)
+      targ_defvec=i386coff_vec
+      ;;
+diff -c -r ./toolchain/original/binutils-2.22/config.sub ./toolchain/binutils-2.22/config.sub
+*** ./toolchain/original/binutils-2.22/config.sub	Mon Jun  6 13:36:06 2011
+--- ./toolchain/binutils-2.22/config.sub	Fri Nov 25 15:13:36 2016
+***************
+*** 1317,1323 ****
+  	# The portable systems comes first.
+  	# Each alternative MUST END IN A *, to match a version number.
+  	# -sysv* is not here because it comes later, after sysvr4.
+! 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+  	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+  	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+  	      | -sym* | -kopensolaris* \
+--- 1317,1323 ----
+  	# The portable systems comes first.
+  	# Each alternative MUST END IN A *, to match a version number.
+  	# -sysv* is not here because it comes later, after sysvr4.
+! 	-gnu* | -moo* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+  	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+  	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+  	      | -sym* | -kopensolaris* \
+diff -c -r ./toolchain/original/binutils-2.22/gas/configure.tgt ./toolchain/binutils-2.22/gas/configure.tgt
+*** ./toolchain/original/binutils-2.22/gas/configure.tgt	Mon Jun 20 16:23:21 2011
+--- ./toolchain/binutils-2.22/gas/configure.tgt	Fri Nov 25 15:14:36 2016
+***************
+*** 98,103 ****
+--- 98,105 ----
+    alpha-*-netbsd*)			fmt=elf em=nbsd ;;
+    alpha-*-openbsd*)			fmt=elf em=obsd ;;
+
++   i386-*-moo*)			fmt=elf ;;
++
+    arc-*-elf*)				fmt=elf ;;
+
+    arm-*-aout)				fmt=aout ;;
+diff -c -r ./toolchain/original/binutils-2.22/ld/Makefile.in ./toolchain/binutils-2.22/ld/Makefile.in
+*** ./toolchain/original/binutils-2.22/ld/Makefile.in	Fri Jul 22 23:22:37 2011
+--- ./toolchain/binutils-2.22/ld/Makefile.in	Fri Nov 25 15:16:41 2016
+***************
+*** 2627,2632 ****
+--- 2627,2635 ----
+  eelf_i386.c: $(srcdir)/emulparams/elf_i386.sh \
+    $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+  	${GENSCRIPTS} elf_i386 "$(tdir_elf_i386)"
++ emoo_i386.c: $(srcdir)/emulparams/moo_i386.sh \
++   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++ 	${GENSCRIPTS} moo_i386 "$(tdir_moo_i386)"
+  eelf_i386_be.c: $(srcdir)/emulparams/elf_i386_be.sh \
+    $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+  	${GENSCRIPTS} elf_i386_be "$(tdir_elf_i386_be)"
+diff -c -r ./toolchain/original/binutils-2.22/ld/configure.tgt ./toolchain/binutils-2.22/ld/configure.tgt
+*** ./toolchain/original/binutils-2.22/ld/configure.tgt	Mon Nov 21 11:29:37 2011
+--- ./toolchain/binutils-2.22/ld/configure.tgt	Fri Nov 25 16:21:37 2016
+***************
+*** 200,205 ****
+--- 200,206 ----
+                          targ_extra_emuls="elf_i386_ldso elf_i386 elf_x86_64_sol2 elf_x86_64 elf_l1om elf_k1om"
+  			targ_extra_libpath=$targ_extra_emuls
+                          ;;
++ i[3-7]86-*-moo*)	targ_emul=moo_i386 ;;
+  x86_64-*-solaris2*)
+  			targ_emul=elf_x86_64_sol2
+  			targ_extra_emuls="elf_x86_64 elf_i386_sol2 elf_i386_ldso elf_i386 elf_l1om elf_k1om"

@@ -1,5 +1,5 @@
 #include "vesa_lfb.h"
-#include "debug.h"
+#include "log.h"
 #include "liballoc.h"
 #include "string.h"
 #include "gui/surface.h"
@@ -13,7 +13,7 @@ void bltblt(gpu_device_t *video_device, surface_t* surface)
 {
     if (video_device->width != surface->width || video_device->height != surface->height)
     {
-        debug("[vesa lfb] surface size != framebuffer size\n");
+        log(KERN_ERR, "vesa lfb bltblt failed (surface size != framebuffer size)\n");
         return;
     }
 
@@ -22,7 +22,7 @@ void bltblt(gpu_device_t *video_device, surface_t* surface)
 
 void init_vesa_lfb_video_adapter(pci_device_t *pci_device)
 {
-    debug("[vesa lfb] video driver init\n");
+    //debug("[vesa lfb] video driver init\n");
     gpu_device_t *video_dev = kmalloc(sizeof(gpu_device_t));
     memset(video_dev, 0, sizeof(gpu_device_t));
     video_dev->width = kernel_params->video_settings.width;
@@ -34,5 +34,5 @@ void init_vesa_lfb_video_adapter(pci_device_t *pci_device)
 
     video_dev->bltblt = &bltblt;
     pci_device->hardware_driver = video_dev;
-    debug("[vesa lfb] work in %ix%i mode, framebuffer virtual location %h\n", video_dev->width, video_dev->height, video_dev->addr);
+    //debug("[vesa lfb] work in %ix%i mode, framebuffer virtual location %x\n", video_dev->width, video_dev->height, video_dev->addr);
 }

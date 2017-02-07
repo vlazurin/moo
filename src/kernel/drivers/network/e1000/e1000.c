@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "pci.h"
-#include "tasking.h"
+#include "task.h"
 #include "liballoc.h"
 #include "mmio.h"
 #include "mm.h"
@@ -9,7 +9,7 @@
 #include "network.h"
 #include "string.h"
 #include "system.h"
-#include "debug.h"
+#include "log.h"
 
 // must be multiple of 8
 // 256 because it will take exactly one page (descriptor size is 16 bytes)
@@ -103,17 +103,17 @@ void rx_thread(e1000_device_t *dev)
         uint8_t drop = 0;
         if ((dev->rx_base[dev->rx_tail].status & (1 << 1)) == 0)
         {
-            debug("[e1000] no End Of Packet flag. Status: %h, packet ignored.\n", dev->rx_base[dev->rx_tail].status);
+            //debug("[e1000] no End Of Packet flag. Status: %x, packet ignored.\n", dev->rx_base[dev->rx_tail].status);
             drop = 1;
         }
         else if (dev->rx_base[dev->rx_tail].length < 60)
         {
-            debug("[e1000] packet length is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].length);
+            //debug("[e1000] packet length is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].length);
             drop = 1;
         }
         else if (dev->rx_base[dev->rx_tail].errors)
         {
-            debug("[e1000] packet error code is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].errors);
+            //debug("[e1000] packet error code is %i, packet ignored.\n", dev->rx_base[dev->rx_tail].errors);
             drop = 1;
         }
 
@@ -231,25 +231,25 @@ void send_packet(network_device_t *net_dev, void *packet, size_t size)
 
     if (packet == 0)
     {
-        debug("[e1000] can't send packet because of zero pointer\n");
+        //debug("[e1000] can't send packet because of zero pointer\n");
         return;
     }
 
     if (size == 0)
     {
-        debug("[e1000] can't send empty packet\n");
+        //debug("[e1000] can't send empty packet\n");
         return;
     }
 
-    if (size > MAX_ETHERNET_PAYLOAD_SIZE)
+    if (size > MAX_ETHERNET_PACKET_SIZE)
     {
-        debug("[e1000] trying to send eth packet with size > %i\n", MAX_ETHERNET_PAYLOAD_SIZE);
+        //debug("[e1000] trying to send eth packet with size > %i\n", MAX_ETHERNET_PAYLOAD_SIZE);
         return;
     }
 
     if (size < MIN_ETHERNET_PACKET_SIZE)
     {
-        debug("[e1000] trying to send eth packet with size < %i\n", MIN_ETHERNET_PACKET_SIZE);
+        //debug("[e1000] trying to send eth packet with size < %i\n", MIN_ETHERNET_PACKET_SIZE);
         return;
     }
 
@@ -337,7 +337,7 @@ void e1000_init(pci_device_t *pci_dev)
 
     e1000_setup_rx(dev);
     e1000_setup_tx(dev);
-    create_thread(rx_thread, dev);
+    start_thread(rx_thread, (uint32_t)dev);
     e1000_enable(net_dev);
-    debug("[e1000] initialized\n");
+    //debug("[e1000] initialized\n");
 }

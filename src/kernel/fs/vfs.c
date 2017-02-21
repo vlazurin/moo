@@ -72,11 +72,12 @@ static struct vfs_node *lookup(char *path)
 /**
  * Function isn't thread safe.
  */
-int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, void *obj, vfs_node_t **out)
+int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, void *obj, struct vfs_node **out)
 {
     if (vfs_root == NULL) {
         return -EFAULT;
     }
+
     char *chopped = strrchr(path, '/');
     if (chopped == NULL) {
         return -EFAULT;
@@ -104,7 +105,19 @@ int create_vfs_node(char *path, mode_t mode, vfs_file_operations_t *file_ops, vo
         return -EEXIST;
     }
 
-    return parent->ops->create_node(parent, chopped, mode, file_ops, obj, out);
+    struct vfs_node *new_node = NULL;
+    int err = parent->ops->create_node(parent, chopped, mode, file_ops, obj, &new_node);
+
+    if (err) {
+        return err;
+    }
+
+    new_node->parent = parent;
+    if (out != NULL) {
+        *out = new_node;
+    }
+
+    return 0;
 }
 
 int register_fs(struct vfs_fs_type *fs)
@@ -248,7 +261,9 @@ cleanup:
 
 int sys_read(file_descriptor_t fd, void *buf, uint32_t size)
 {
+    //log(KERN_DEBUG, "read call for %i\n", fd);
     if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
+        //log(KERN_DEBUG, "error for %i %x\n", fd, current_process->files[fd]);
         return -EBADF;
     }
 
@@ -276,7 +291,7 @@ int sys_write(file_descriptor_t fd, void *buf, uint32_t size)
     return err;
 }
 
-file_descriptor_t sys_open(char *path)
+file_descriptor_t sys_open(char *path, int flags)
 {
     mutex_lock(&vfs_mutex);
     int err = 0;
@@ -289,8 +304,16 @@ file_descriptor_t sys_open(char *path)
 
     struct vfs_node *node = lookup(canonical);
     if (node == NULL) {
-        err = -ENOENT;
-        goto mutex_cleanup;
+        if ((flags & O_CREAT) == O_CREAT) {
+            canonicalize_path(path, canonical, MAX_PATH_LENGTH);
+            err = create_vfs_node(canonical, S_IFREG, NULL, NULL, &node);
+            if (err) {
+                goto mutex_cleanup;
+            }
+        } else {
+            err = -ENOENT;
+            goto mutex_cleanup;
+        }
     }
 
     for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
@@ -305,6 +328,10 @@ file_descriptor_t sys_open(char *path)
                 if (err) {
                     goto mutex_cleanup;
                 }
+            }
+
+            if ((flags & O_APPEND) == O_APPEND) {
+                file->pos = node->size;
             }
 
             current_process->files[i] = file;
@@ -325,7 +352,7 @@ int sys_close(file_descriptor_t fd)
     if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
         return -EBADF;
     }
-
+    log(KERN_DEBUG, "close %s\n", current_process->files[fd]->node->name);
     vfs_file_t *file = current_process->files[fd];
     if (file->ops != NULL && file->ops->close != NULL) {
         int err = file->ops->close(file);
@@ -351,30 +378,37 @@ int fcntl(int fd, int cmd, int arg)
 
     switch (cmd) {
         case F_DUPFD:
-            for(uint32_t i = cmd; i < MAX_OPENED_FILES; i++) {
+            debug("fcntl F_DUPFD %i -> %i\n", fd, arg);
+            for(uint32_t i = arg; i < MAX_OPENED_FILES; i++) {
                 if (current_process->files[i] == NULL) {
-                    current_process->files[i] = current_process->files[fd];
+                    current_process->files[i] = kmalloc(sizeof(vfs_file_t));
+                    *current_process->files[i] = *current_process->files[fd];
                     return i;
                 }
             }
             return -EMFILE;
         break;
         case F_DUPFD_CLOEXEC:
-            for(uint32_t i = cmd; i < MAX_OPENED_FILES; i++) {
+            debug("fcntl F_DUPFD_CLOEXEC %i -> %i\n", fd, arg);
+            for(uint32_t i = arg; i < MAX_OPENED_FILES; i++) {
                 if (current_process->files[i] == NULL) {
-                    current_process->files[i] = current_process->files[fd];
+                    current_process->files[i] = kmalloc(sizeof(vfs_file_t));
+                    *current_process->files[i] = *current_process->files[fd];
                     current_process->files[i]->flags |= FD_CLOEXEC;
                     return i;
                 }
             }
         break;
         case F_GETFD:
+            debug("fcntl F_GETFD %i\n", fd);
             return current_process->files[fd]->flags;
         break;
         case F_SETFD:
+        debug("fcntl F_SETFD %i -> %i\n", fd, arg);
             return current_process->files[fd]->flags = arg;
         break;
         default:
+            log(KERN_DEBUG, "unknown fcntl cmd %i with arg %i", cmd, arg);
             return -EINVAL;
         break;
     }
@@ -433,6 +467,7 @@ int mount_fs(char *path, char *fs_name, struct ata_device *dev)
 
     struct vfs_super *super = fs->ops->read_super(dev);
     struct vfs_node *local_root = super->ops->spawn(super, "/", S_IFDIR);
+    super->local_root = local_root;
 
     if (strcmp(canonical, "/") == 0) {
         if (vfs_root != NULL) {
@@ -496,6 +531,24 @@ int lseek(file_descriptor_t fd, int offset, int whence)
     } else {
         current_process->files[fd]->pos = current_process->files[fd]->node->size + offset;
     }
+
+    return 0;
+}
+
+int dup2(file_descriptor_t old, file_descriptor_t new)
+{
+    if (old >= MAX_OPENED_FILES || old < 0 || new >= MAX_OPENED_FILES || new < 0 || current_process->files[old] == NULL) {
+        return -EBADF;
+    }
+
+    if (current_process->files[new] != NULL) {
+        int err = sys_close(new);
+        if (err) {
+            log(KERN_ERR, "dup2 can't close fd %i\n", new);
+        }
+    }
+    current_process->files[new] = kmalloc(sizeof(vfs_file_t));
+    *current_process->files[new] = *current_process->files[old];
 
     return 0;
 }

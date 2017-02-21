@@ -15,7 +15,6 @@ set(SOURCE_FILES
         mm.c
         liballoc.c
         mutex.c
-        stb_truetype.c
         pit.c
         gdt.c
         gdt.S

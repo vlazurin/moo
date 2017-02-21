@@ -22,6 +22,7 @@ static void process_bootstrap(char *path)
     char *envp[2];
     envp[0] = "PWD=/";
     envp[1] = 0;
+    open_process_std();
     execve(path, params, envp);
 }
 
@@ -122,7 +123,6 @@ int execve(char *path, char **argv, char **envp)
     if (argv_tmp != NULL) kfree(argv_tmp);
     if (enpv_tmp != NULL) kfree(enpv_tmp);
 
-    open_process_std();
     set_fg_pid(get_pid());
 
     set_kernel_stack((uint32_t)current_thread->stack_mem + KERNEL_STACK_SIZE);

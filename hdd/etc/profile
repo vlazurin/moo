@@ -1,2 +1,1 @@
-echo "Project Moo"
-echo "=============================="
+export ENV="/etc/shinit"

@@ -1,4 +1,5 @@
 #include "log.h"
+#include "task.h"
 #include "port.h"
 #include "string.h"
 #include "stdlib.h"
@@ -71,6 +72,12 @@ void log(int level, const char *format, ...)
     mutex_lock(&mutex);
 
     early_write(labels[level]);
+    int pid = get_pid();
+    if (pid >= 0) {
+        char pid_str[20] = {0};
+        sprintf(pid_str, "[pid %i] ", pid);
+        early_write(pid_str);
+    }
 
     char *ptr = message;
     uint32_t message_size = 0;

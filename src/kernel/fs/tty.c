@@ -17,7 +17,7 @@ static int slave_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *off
     if (!(pty->flags & PTY_FLAG_SLAVE_OPEN))
     {
         //debug("[pty] slave write ignored because pty is closed");
-        return 0;
+        //return 0;
     }
 
     //uint8_t reported = false;
@@ -43,7 +43,7 @@ static int master_write(vfs_file_t *file, void *buf, uint32_t size, uint32_t *of
     if (!(pty->flags & PTY_FLAG_SLAVE_OPEN))
     {
         //debug("[pty] master write ignored because pty is closed");
-        return 0;
+        //return 0;
     }
 
     uint32_t accepted = 0;

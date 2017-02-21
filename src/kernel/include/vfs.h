@@ -47,6 +47,9 @@ struct timespec {
 #define		_IFSOCK	0140000	/* socket */
 #define		_IFIFO	0010000	/* fifo */
 
+#define	O_CREAT 0x0200
+#define O_APPEND 0x0008
+
 #define S_IFMT 0170000	/* type of file */
 #define S_IFDIR 0040000	/* directory */
 #define S_IFCHR 0020000	/* character special */
@@ -89,6 +92,7 @@ typedef struct dirent
 struct vfs_super {
     struct ata_device *dev;
     struct vfs_super_operations *ops;
+    struct vfs_node *local_root;
     void *private;
 };
 
@@ -122,11 +126,12 @@ struct vfs_node
 {
     list_node_t list;
     vfs_node_t *children;
+    struct vfs_node *parent;
     char name[VFS_NODE_NAME_LENGTH];
     uint32_t size;
     mode_t mode;
     void *obj;
-    uint8_t is_loaded;
+    uint8_t loaded;
     struct vfs_super *super;
     vfs_node_operations_t *ops;
     vfs_file_operations_t *file_ops;
@@ -154,7 +159,7 @@ struct vfs_file
 int register_fs(struct vfs_fs_type *fs);
 int mount_fs(char *path, char *fs_name, struct ata_device *dev);
 int mkdir(char *path);
-file_descriptor_t sys_open(char *path);
+file_descriptor_t sys_open(char *path, int flags);
 int sys_read(file_descriptor_t fd, void *buf, uint32_t size);
 int sys_write(file_descriptor_t fd, void *buf, uint32_t size);
 int sys_close(file_descriptor_t fd);
@@ -165,4 +170,5 @@ int fcntl(int fd, int cmd, int arg);
 int chdir(char *path);
 int symlink(char *path, char *target_path);
 int lseek(file_descriptor_t fd, int offset, int whence);
+int dup2(file_descriptor_t old, file_descriptor_t new);
 #endif

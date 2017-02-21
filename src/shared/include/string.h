@@ -15,6 +15,7 @@ char *strchr(const char *s, int c);
 size_t strcspn(const char *s1, const char *s2);
 void memcpy(void *dest, const void *src, size_t n);
 void strlower(char *str, size_t n);
+void strup(char *str, size_t n);
 char *trim(char *str);
 int strpos(char *str, char c);
 char *strrchr(char *s, int ch);

@@ -12,6 +12,8 @@
 #define KERN_INFO 3
 #define KERN_DEBUG 4
 
+#define debug(...) log(KERN_DEBUG, __VA_ARGS__)
+
 #ifdef DEBUG
 #define assert(e) ((e) ? (void)0 : log(KERN_INFO, "assert failed: %s:%s():%i. Expression: %s\n", __FILE__, __func__, __LINE__, #e))
 #else

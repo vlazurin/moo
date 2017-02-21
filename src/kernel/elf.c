@@ -30,7 +30,7 @@ int check_elf(char *filename)
     }
 
     char sig[4];
-    file_descriptor_t fd = sys_open(filename);
+    file_descriptor_t fd = sys_open(filename, 0);
     if (fd < 0) {
         return fd;
     }
@@ -57,7 +57,7 @@ int load_elf(char* filename, void **entry_point)
         return err;
     }
     uint8_t *file = kmalloc(st.st_size);
-    file_descriptor_t fd = sys_open(filename);
+    file_descriptor_t fd = sys_open(filename, 0);
     if (fd < 0) {
         return err;
     }

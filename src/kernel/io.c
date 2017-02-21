@@ -8,8 +8,8 @@ file_descriptor_t stdout;
 
 static void process_input(void *params)
 {
-    file_descriptor_t fd = sys_open("/dev/kb");
-    file_descriptor_t tmp = sys_open("/dev/screen");
+    file_descriptor_t fd = sys_open("/dev/kb", 0);
+    file_descriptor_t tmp = sys_open("/dev/screen", 0);
     if (fd < 0 || tmp < 0) {
         log(KERN_FATAL, "can't init input\n");
         hlt();
@@ -26,7 +26,7 @@ static void process_input(void *params)
 
 static void process_output(void *params)
 {
-    file_descriptor_t fd = sys_open("/dev/screen");
+    file_descriptor_t fd = sys_open("/dev/screen", 0);
     uint32_t count;
     while(1)
     {
@@ -46,15 +46,15 @@ void init_io()
 
 void open_process_std()
 {
-    file_descriptor_t fd = sys_open("/dev/stdin");
+    file_descriptor_t fd = sys_open("/dev/stdin", 0);
     if (fd < 0) {
         log(KERN_FATAL, "can't open stdin\n");
     }
-    fd = sys_open("/dev/stdout");
+    fd = sys_open("/dev/stdout", 0);
     if (fd < 0) {
         log(KERN_FATAL, "can't open stdout\n");
     }
-    fd = sys_open("/dev/stdout");
+    fd = sys_open("/dev/stdout", 0);
     if (fd < 0) {
         log(KERN_FATAL, "can't open stderr\n");
     }

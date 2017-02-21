@@ -19,7 +19,7 @@ static volatile mutex_t global_mutex;
 struct process *current_process = 0;
 static struct process *fg_process = 0;
  struct thread *current_thread = 0;
-static uint32_t next_pid = 0;
+static int next_pid = 0;
 void set_kernel_stack(uintptr_t stack);
 extern page_directory_t *page_directory;
 
@@ -96,11 +96,12 @@ struct process *create_process(void *entry_point, uint32_t arg)
     memset((void*)process, 0, sizeof(struct process));
 
     // failsafe, probably it never will be false :)
-    assert(next_pid < 0xFFFFFF00);
+    assert(next_pid < 0x7FFFFFFF16);
 
     process->signals_queue = create_ring(100);
 
     process->id = __sync_fetch_and_add(&next_pid, 1);
+    process->group_id = process->id;
     process->page_dir_base = kmalloc(sizeof(page_directory_t) + 0x1000);
     process->page_dir = (page_directory_t*)PAGE_ALIGN((uint32_t)process->page_dir_base);
     strcpy(process->cur_dir, DEFAULT_DIR);
@@ -136,10 +137,26 @@ void schedule_process(struct process *p)
     sti();
 }
 
-uint32_t get_pid()
+int get_p_pid()
 {
     assert((uint32_t)current_process >= KERNEL_SPACE_ADDR);
+    return current_process->parent_id;
+}
+
+int get_pid()
+{
+    assert((uint32_t)current_process >= KERNEL_SPACE_ADDR);
+    // possible case when log() calls get_pid() before process 0 initialization
+    if (current_process == NULL) {
+        return -ESRCH;
+    }
     return current_process->id;
+}
+
+int get_gid()
+{
+    assert((uint32_t)current_process >= KERNEL_SPACE_ADDR);
+    return current_process->group_id;
 }
 
 void set_fg_pid(uint32_t pid)
@@ -169,10 +186,11 @@ int fork()
 {
     struct process *p = create_process(0, 0);
     p->parent_id = get_pid();
+    p->group_id = current_process->group_id;
     strcpy(p->cur_dir, current_process->cur_dir);
 
     for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
-        if (p->files[i] != NULL) {
+        if (current_process->files[i] != NULL) {
             p->files[i] = kmalloc(sizeof(vfs_file_t));
             memcpy(p->files[i], current_process->files[i], sizeof(vfs_file_t));
             p->files[i]->pid = p->id;
@@ -232,7 +250,6 @@ int wait_pid(int pid, int *status, int options)
                 iterator = (struct process*)iterator->list.next;
             }
             sti();
-
             if (iterator == NULL) {
                 if (options & WNOHANG) {
                     return -ECHILD;
@@ -270,6 +287,7 @@ void init_multitasking()
     process->state = PROCESS_RUNNING;
     process->next_thread_id = 1;
     process->id = __sync_fetch_and_add(&next_pid, 1);
+    process->group_id = process->id;
     process->page_dir_base = (void*)PAGE_DIRECTORY_VIRTUAL;
     process->page_dir = (page_directory_t*)PAGE_DIRECTORY_VIRTUAL;
     strcpy(process->cur_dir, DEFAULT_DIR);
@@ -293,6 +311,14 @@ void force_task_switch()
 {
     task_switch_required = 1;
     switch_task();
+}
+
+vfs_file_t *get_file(file_descriptor_t fd)
+{
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
+        return NULL;
+    }
+    return current_process->files[fd];
 }
 
 void switch_task()

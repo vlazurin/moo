@@ -148,6 +148,17 @@ void strlower(char *str, size_t n)
     }
 }
 
+void strup(char *str, size_t n)
+{
+    while(n > 0) {
+        if (*str >= 97 && *str <= 122) {
+            *str -= 32;
+        }
+        str++;
+        n--;
+    }
+}
+
 char *trim(char *str)
 {
     char *end;

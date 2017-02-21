@@ -60,10 +60,13 @@ struct process *create_process(void *entry_point, uint32_t arg);
 void schedule_process(struct process *p);
 uint32_t get_fg_pid();
 void set_fg_pid(uint32_t pid);
-uint32_t get_pid();
+int get_pid();
+int get_p_pid();
+int get_gid();
 int fork();
 void stop_process();
 struct process *proc_by_id(int pid);
 int wait_pid(int pid, int *status, int options);
 int execve(char *path, char **argv, char **envp);
+vfs_file_t *get_file(file_descriptor_t fd);
 #endif

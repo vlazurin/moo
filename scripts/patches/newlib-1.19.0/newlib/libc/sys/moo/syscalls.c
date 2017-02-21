@@ -8,12 +8,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
-#define DECL_SYSCALL0(fn)                int syscall_##fn()
-#define DECL_SYSCALL1(fn,p1)             int syscall_##fn(p1)
-#define DECL_SYSCALL2(fn,p1,p2)          int syscall_##fn(p1,p2)
-#define DECL_SYSCALL3(fn,p1,p2,p3)       int syscall_##fn(p1,p2,p3)
-#define DECL_SYSCALL4(fn,p1,p2,p3,p4)    int syscall_##fn(p1,p2,p3,p4)
-#define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) int syscall_##fn(p1,p2,p3,p4,p5)
+
+#define F_DUPFD_CLOEXEC 14
 
 typedef struct sigset
 {
@@ -61,26 +57,71 @@ typedef struct DIR {
 	}
 
 
-DEFN_SYSCALL3(write, 4, int, char *, int);
-DEFN_SYSCALL3(read, 3, int, char *, int);
-DEFN_SYSCALL3(execve, 11, char *, char **, char **);
-DEFN_SYSCALL3(open, 5, char *, int, int);
-DEFN_SYSCALL3(lseek, 19, int, int, int);
-DEFN_SYSCALL0(exit, 1);
-DEFN_SYSCALL0(fork, 2);
-DEFN_SYSCALL1(brk, 45, int);
-DEFN_SYSCALL1(chdir, 0x0C, char*);
+#define SYSCALL_EXIT 1
+#define SYSCALL_FORK 2
+#define SYSCALL_READ 3
+#define SYSCALL_WRITE 4
+#define SYSCALL_OPEN 5
+#define SYSCALL_CLOSE 6
+#define SYSCALL_BRK 8
+#define SYSCALL_STAT 9
+#define SYSCALL_GETPID 10
+#define SYSCALL_EXECVE 11
+#define SYSCALL_CHDIR 12
+#define SYSCALL_GETGID 13
+#define SYSCALL_TCSETPGRP 14
+#define SYSCALL_LSEEK 15
+#define SYSCALL_TCGETPGRP 16
+#define SYSCALL_SETPGRP 17
+#define SYSCALL_FCNTL 18
+#define SYSCALL_GETPGRP 19
+#define SYSCALL_SIGACTION 20
+#define SYSCALL_MKDIR 21
+#define SYSCALL_WAITPID 22
+#define SYSCALL_SIGSUSPEND 23
+#define SYSCALL_DEBUG 24
+#define SYSCALL_GETPPID 25
+#define SYSCALL_GETEGID 26
+#define SYSCALL_GETEUID 27
+#define SYSCALL_GETUID 28
+
+DEFN_SYSCALL0(fork, SYSCALL_FORK);
+DEFN_SYSCALL3(write, SYSCALL_WRITE, int, char *, int);
+DEFN_SYSCALL3(read, SYSCALL_READ, int, char *, int);
+DEFN_SYSCALL3(execve, SYSCALL_EXECVE, char *, char **, char **);
+DEFN_SYSCALL3(open, SYSCALL_OPEN, char *, int, int);
+DEFN_SYSCALL3(lseek, SYSCALL_LSEEK, int, int, int);
+DEFN_SYSCALL0(exit, SYSCALL_EXIT);
+DEFN_SYSCALL1(brk, SYSCALL_BRK, int);
+DEFN_SYSCALL1(chdir, SYSCALL_CHDIR, char*);
 DEFN_SYSCALL1(isatty, 200, int);
-DEFN_SYSCALL2(fstat, 28, int, struct stat *);
-DEFN_SYSCALL2(stat, 0x12, char *, struct stat *);
+DEFN_SYSCALL0(getppid, SYSCALL_GETPPID);
+DEFN_SYSCALL0(geteuid, SYSCALL_GETEUID);
+DEFN_SYSCALL0(getuid, SYSCALL_GETUID);
+DEFN_SYSCALL0(getpgrp, SYSCALL_GETPGRP);
+DEFN_SYSCALL0(getgid, SYSCALL_GETGID);
+DEFN_SYSCALL0(getegid, SYSCALL_GETEGID);
+DEFN_SYSCALL2(dup2, 206, int, int);
+DEFN_SYSCALL2(getcwd, 207, char*, size_t);
+DEFN_SYSCALL1(pipe, 208, int*);
+DEFN_SYSCALL2(debug, SYSCALL_DEBUG, char *, int);
+DEFN_SYSCALL2(fstat, 280, int, struct stat *);
+DEFN_SYSCALL2(tcsetpgrp, SYSCALL_TCSETPGRP, int, pid_t);
+DEFN_SYSCALL1(tcgetpgrp, SYSCALL_TCGETPGRP, int);
+DEFN_SYSCALL2(stat, SYSCALL_STAT, char *, struct stat *);
 DEFN_SYSCALL2(kill, 37, int, int);
 DEFN_SYSCALL2(link, 9, char*, char*);
-DEFN_SYSCALL0(close, 6);
-DEFN_SYSCALL0(getpid, 20);
-DEFN_SYSCALL2(mkdir, 0x27, char *, mode_t);
+DEFN_SYSCALL2(setpgrp, SYSCALL_SETPGRP, pid_t, pid_t);
+DEFN_SYSCALL1(close, SYSCALL_CLOSE, int);
+DEFN_SYSCALL0(getpid, SYSCALL_GETPID);
+DEFN_SYSCALL2(mkdir, SYSCALL_MKDIR, char *, mode_t);
+DEFN_SYSCALL3(sigprocmask, 0x7e, int, sigset_t*, sigset_t*);
+DEFN_SYSCALL3(waitpid, SYSCALL_WAITPID, int, int*, int);
+DEFN_SYSCALL1(sigsuspend, SYSCALL_SIGSUSPEND, sigset_t*);
+DEFN_SYSCALL3(sigaction, SYSCALL_SIGACTION, int, struct sigaction*, struct sigaction*);
+DEFN_SYSCALL3(fcntl, SYSCALL_FCNTL, int, int, int);
 
-__attribute__((noreturn))
-void __stack_chk_fail(void)
+__attribute__((noreturn)) void __stack_chk_fail(void)
 {
     write(1, "Stack overflow!\n", 16);
     while(1){}
@@ -89,202 +130,255 @@ void __stack_chk_fail(void)
 __attribute__((noreturn)) void _exit(int code)
 {
     syscall_exit();
-    while(1){}
 };
 
 int stat(const char *path, struct stat *buf)
 {
-    return syscall_stat(path, buf);
+    int i = syscall_stat(path, buf);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 {
-    char *m = "sigprocmask!\n";
-    write(1, m, strlen(m));
-    return 0;
+    int i = syscall_sigprocmask(how, set, oldset);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int getppid(void)
 {
-    return 45678;
+    return syscall_getppid();
 }
 
 int geteuid(void)
 {
-    return 123456;
+    return syscall_geteuid();
 }
 
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 {
-    return 0;
+    int i = syscall_sigaction(signum, act, oldact);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
+// always returns error (normally EINTR)
 int sigsuspend(const sigset_t *mask)
 {
-    char *m = "sigsuspend! infinity loop\n";
-    write(1, m, strlen(m));
-    while(1){}
+    errno = syscall_sigsuspend(mask);
     return -1;
 }
 
 int tcsetpgrp(int fd, pid_t pgrp)
 {
-    //char *m = "tcsetpgrp!\n";
-    //write(1, m, strlen(m));
-    return 0;
+    int i = syscall_tcsetpgrp(fd, pgrp);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
-pid_t getpgrp(pid_t pid)
+pid_t getpgrp()
 {
-    //char *m = "getpgrp!\n";
-    //write(1, m, strlen(m));
-    return 0;
+    int i = syscall_getpgrp();
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int pipe(int pipefd[2])
 {
-    char *m = "pipe!\n";
-    write(1, m, strlen(m));
-    return 0;
+    int i = syscall_pipe((int*)pipefd);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int getgid()
 {
-    char *m = "getgid!\n";
-    write(1, m, strlen(m));
-    return 0;
+    return syscall_getgid();
 }
 
 int getegid()
 {
-    char *m = "getegid!\n";
-    write(1, m, strlen(m));
-    return 0;
+    return syscall_getegid();
 }
 
 int chdir(const char *path)
 {
-    return syscall_chdir(path);
+    int i = syscall_chdir(path);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int dup2(int oldfd, int newfd)
 {
-    char *m = "dup2!\n";
-    write(1, m, strlen(m));
-    return 0;
+    int i = syscall_dup2(oldfd, newfd);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 char *getcwd(char *buf, size_t size)
 {
-    buf[0] = "/";
-    buf[1] = "\0";
-    return buf;
+    int i = syscall_getcwd(buf, size);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
-int fcntl(int fildes, int cmd, ...)
+int fcntl(int fd, int cmd, ...)
 {
-    //char *m = "fcntl!\n";
-    //write(1, m, strlen(m));
-    return 0;
+    int arg = 0;
+    if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC || cmd == F_SETFD) {
+        va_list args;
+        va_start(args, cmd);
+        arg = va_arg(args, int);
+        va_end(args);
+    }
+    int i = syscall_fcntl(fd, cmd, arg);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 struct DIR *opendir(const char *name)
 {
-    char *m = "opendir!\n";
-    write(1, m, strlen(m));
-    return 0;
+    syscall_debug("opendir isn't implemented\n", 27);
+    errno = -ENOENT;
+    return NULL;
 }
 
 pid_t tcgetpgrp(int fd)
 {
-    //char *m = "tcgetpgrp!\n";
-    //write(1, m, strlen(m));
-    return 0;
+    int i = syscall_tcgetpgrp(fd);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int killpg(int pgrp, int sig)
 {
-    char *m = "killpg!\n";
-    write(1, m, strlen(m));
+    syscall_debug("killpg isn't implemented\n", 26);
     return 0;
 }
 
 pid_t wait3(int *status, int options, struct rusage *rusage)
 {
-    //char *m = "wait3!\n";
-    //write(1, m, strlen(m));
-    return 0;
+    int i = syscall_waitpid(-1, status, options);
+	if (i < 0) {
+		errno = -i;
+		return -1;
+	}
+	return i;
 }
 
 int closedir(DIR *dirp)
 {
-    char *m = "closedir!\n";
-    write(1, m, strlen(m));
-    return 0;
+    syscall_debug("closedir isn't implemented\n", 28);
+    return -1;
 }
 
 struct dirent *readdir(DIR *dirp)
 {
-    char *m = "readdir!\n";
-    write(1, m, strlen(m));
-    return 0;
+    syscall_debug("readdir isn't implemented\n", 27);
+    return -1;
 }
 
-int setpgid()
+int setpgid(pid_t pid, pid_t pgid)
 {
-    //char *m = "setpgid!\n";
-    //write(1, m, strlen(m));
-    return 0;
+    return syscall_setpgrp(pid, pgid);
 }
 
 int getuid()
 {
-    //char *m = "getuid!\n";
-    //write(1, m, strlen(m));
-    return 0;
+    return syscall_getuid();
 }
 
 int getgroups(int size, gid_t list[])
 {
-    char *m = "getgroups!\n";
-    write(1, m, strlen(m));
-    return 0;
+    syscall_debug("getgroups isn't implemented\n", 29);
+    return -1;
 }
 
 int lstat(const char *path, struct stat *buf)
 {
-    char *m = "lstat!\n";
-    write(1, m, strlen(m));
-    return 0;
+    syscall_debug("lstat isn't implemented\n", 25);
+    return -1;
 }
 
 mode_t umask(mode_t mask)
 {
-    char *m = "umask!\n";
-    write(1, m, strlen(m));
-    return 0;
+    syscall_debug("umask isn't implemented\n", 25);
+    return -1;
 }
 
 int close(int file)
 {
-    return syscall_close(file);
+    int i = syscall_close(file);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 extern char **environ; /* pointer to array of char * strings that define the current environment variables */
 
 int execve(const char *name, char **argv, char **envp)
 {
-	return syscall_execve((char*)name, argv, envp);
+	int i = syscall_execve((char*)name, argv, envp);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int fork()
 {
-    return syscall_fork();
+    int i = syscall_fork();
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int fstat(int file, struct stat *st)
 {
-    return syscall_fstat(file, st);
+    int i = syscall_fstat(file, st);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int getpid()
@@ -294,22 +388,31 @@ int getpid()
 
 int isatty(int file)
 {
-    return syscall_isatty(file);
+    return 1;
+    syscall_debug("isatty isn't implemented\n", 26);
+    return 0;
 }
 
 int kill(int pid, int sig)
 {
-    return syscall_kill(pid, sig);
+    syscall_debug("kill isn't implemented\n", 24);
+    return -1;
 }
 
 int link(char *old, char *new)
 {
-    return syscall_link(old, new);
+    syscall_debug("link isn't implemented\n", 24);
+    return -1;
 }
 
 int lseek(int file, int ptr, int dir)
 {
-    return syscall_lseek(file, ptr, dir);
+    int i = syscall_lseek(file, ptr, dir);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int open(const char *name, int flags, ...)
@@ -323,12 +426,22 @@ int open(const char *name, int flags, ...)
         va_end(args);
     }
 
-    return syscall_open(name, flags, O_WRONLY);
+    int i = syscall_open(name, flags, mode);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 int read(int file, char *ptr, int len)
 {
-    return syscall_read(file, ptr, len);
+    int i = syscall_read(file, ptr, len);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
 }
 
 static caddr_t current_break = 0;
@@ -345,7 +458,7 @@ static int brk(void *end_data_segment)
 
 int mkdir(const char *path, mode_t mode)
 {
-    return syscall_mkdir(path, mode);
+    syscall_mkdir(path, mode);
 }
 
 caddr_t sbrk(int incr)
@@ -360,13 +473,36 @@ caddr_t sbrk(int incr)
     return old_brk;
 }
 
-int stat(const char *file, struct stat *st);
-clock_t times(struct tms *buf);
-int unlink(char *name);
-int wait(int *status);
-int write(int file, char *ptr, int len)
+clock_t times(struct tms *buf)
 {
-    return syscall_write(file, ptr, len);
+    syscall_debug("times isn't implemented\n", 25);
+    return -1;
 }
 
-int gettimeofday(struct timeval *ptimeval, void *ptimezone) { return 0;};
+int unlink(char *name)
+{
+    syscall_debug("unlink isn't implemented\n", 26);
+    return -1;
+}
+
+int wait(int *status)
+{
+    syscall_debug("wait isn't implemented\n", 24);
+    return -1;
+}
+
+int write(int file, char *ptr, int len)
+{
+    int i = syscall_write(file, ptr, len);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
+}
+
+int gettimeofday(struct timeval *ptimeval, void *ptimezone)
+{
+    syscall_debug("gettimeofday isn't implemented\n", 32);
+    return -1;
+}

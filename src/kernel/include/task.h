@@ -10,9 +10,10 @@
 #include "signal.h"
 
 #define THREAD_RUNNING 1
-#define THREAD_TERMINATED 2
+#define THREAD_STOPED 2
 #define PROCESS_RUNNING 1
-#define PROCESS_TERMINATED 2
+#define PROCESS_STOPED 2
+#define PROCESS_DEAD 3
 
 #define PUSH_STACK(stack, value) (stack) -= sizeof(uint32_t); *((uint32_t*)(stack)) = (uint32_t)(value);
 

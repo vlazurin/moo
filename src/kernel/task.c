@@ -27,7 +27,7 @@ static void terminate_thread()
 {
     assert((uint32_t)current_thread >= KERNEL_SPACE_ADDR);
     cli();
-    current_thread->state = THREAD_TERMINATED;
+    current_thread->state = THREAD_STOPED;
     sti();
     log(KERN_INFO, "(PID %i) thread %i terminated\n", current_process->id, current_thread->id);
     force_task_switch();
@@ -58,13 +58,21 @@ static struct thread *create_thread()
 
 void stop_process()
 {
+    for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
+        if (current_process->files[i] != NULL) {
+            sys_close(i);
+        }
+    }
+
+    free_userspace();
+
     cli();
     struct thread *iterator = current_process->threads;
     while(iterator != 0) {
-        iterator->state = THREAD_TERMINATED;
+        iterator->state = THREAD_STOPED;
         iterator = (struct thread*)iterator->list.next;
     }
-    current_process->state = PROCESS_TERMINATED;
+    current_process->state = PROCESS_STOPED;
     sti();
     force_task_switch();
 }
@@ -230,6 +238,9 @@ int fork()
     struct regs *new = (struct regs*)p->threads[0].regs.esp;
     new->eax = 0;
     int child_pid = p->id;
+    p->state = PROCESS_RUNNING;
+    p->threads->state = THREAD_RUNNING;
+
     cli();
     add_to_list(processes, p);
     sti();
@@ -243,7 +254,7 @@ int wait_pid(int pid, int *status, int options)
             cli();
             struct process *iterator = processes;
             while(iterator != NULL) {
-                if (iterator->parent_id == current_process->id && iterator->state == PROCESS_TERMINATED) {
+                if (iterator->parent_id == current_process->id && iterator->state == PROCESS_DEAD) {
                     delete_from_list((void*)&processes, iterator);
                     break;
                 }
@@ -258,7 +269,10 @@ int wait_pid(int pid, int *status, int options)
             } else {
                 //TODO: FREE PROCESS MEMORY
                 *status = 0x0;
-                return iterator->id;
+                int id = iterator->id;
+                kfree(iterator);
+
+                return id;
             }
         }
     }
@@ -277,6 +291,37 @@ struct process *proc_by_id(int pid)
     }
     sti();
     return NULL;
+}
+
+static void killer()
+{
+    while(true) {
+        cli();
+        struct process *iterator = processes;
+        while(iterator != NULL) {
+            struct thread *thread_iterator = iterator->threads;
+            while(thread_iterator != NULL) {
+                if (thread_iterator->state == THREAD_STOPED) {
+                    struct thread *tmp = thread_iterator;
+                    kfree(thread_iterator->stack_mem);
+                    thread_iterator = (struct thread*)thread_iterator->list.next;
+                    delete_from_list((void*)&iterator->threads, tmp);
+                    kfree(tmp);
+                    continue;
+                }
+                thread_iterator = (struct thread*)thread_iterator->list.next;
+            }
+
+            if (iterator->threads == NULL) {
+                iterator->state = PROCESS_DEAD;
+                kfree(iterator->page_dir_base);
+            }
+
+            iterator = (struct process*)iterator->list.next;
+        }
+        sti();
+        force_task_switch();
+    }
 }
 
 void init_multitasking()
@@ -305,6 +350,7 @@ void init_multitasking()
     current_process = process;
 
     processes = process;
+    start_thread(killer, 0);
 }
 
 void force_task_switch()
@@ -333,15 +379,18 @@ void switch_task()
     struct process *ps = current_process;
     // TODO: save fpu state
     while(true) {
-        if (th == NULL || ps->state == PROCESS_TERMINATED) {
-            ps = (struct process*)current_process->list.next;
-            if (ps == 0) {
-                ps = processes;
-            }
+        if (ps == NULL) {
+            ps = processes;
             th = ps->threads;
+            continue;
         }
-
-        if (th->state == THREAD_TERMINATED) {
+        if (th == NULL || ps->state != PROCESS_RUNNING) {
+            ps = (struct process*)ps->list.next;
+            th = ps->threads;
+            continue;
+        }
+        assert(th != NULL);
+        if (th->state == THREAD_STOPED) {
             th = (struct thread*)th->list.next;
             continue;
         }

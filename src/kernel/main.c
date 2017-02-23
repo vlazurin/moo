@@ -115,7 +115,7 @@ void main()
     init_io();
     symlink("/bin", "/mount/NO NAME/bin");
     symlink("/home", "/mount/NO NAME/home");
-    //symlink("/etc", "/mount/NO NAME/etc");
+    symlink("/etc", "/mount/NO NAME/etc");
     exec("/bin/dash");
     while(true){}
 }

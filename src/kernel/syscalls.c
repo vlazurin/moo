@@ -65,16 +65,10 @@ static int syscall_tcgetpgrp(file_descriptor_t fd)
 
 static int syscall_setpgrp()
 {
-    int pid = current_process->user_regs->ebx > 0 ? current_process->user_regs->ebx : get_pid();
-    int pgid = current_process->user_regs->ecx > 0 ? current_process->user_regs->ecx : current_process->group_id;
+    int pid = current_thread->user_regs->ebx > 0 ? current_thread->user_regs->ebx : get_pid();
+    int pgid = current_thread->user_regs->ecx > 0 ? current_thread->user_regs->ecx : current_process->group_id;
 
-    struct process *p = proc_by_id(pid);
-    if (p == NULL) {
-        return -ESRCH;
-    }
-    p->group_id = pgid;
-
-    return 0;
+    return set_proc_group(pid, pgid);
 }
 
 static int syscall_getpgrp()
@@ -101,9 +95,9 @@ int syscall_debug(char *str, int len)
 static int syscall_sigaction()
 {
     return 0;
-    int signum = current_process->user_regs->ebx;
-    struct sigaction *new = (struct sigaction*)current_process->user_regs->ecx;
-    struct sigaction *old = (struct sigaction*)current_process->user_regs->edx;
+    int signum = current_thread->user_regs->ebx;
+    struct sigaction *new = (struct sigaction*)current_thread->user_regs->ecx;
+    struct sigaction *old = (struct sigaction*)current_thread->user_regs->edx;
 
     if (old != NULL) {
         *old = current_process->signals[signum];
@@ -128,6 +122,22 @@ static int syscall_sigaction()
 static int syscall_getppid()
 {
     return current_process->parent_id;
+}
+
+static int syscall_closedir()
+{
+    struct DIR *d = (void*)current_thread->user_regs->ebx;
+    return sys_close(d->fd);
+}
+
+static int syscall_readdir()
+{
+    struct DIR *d = (void*)current_thread->user_regs->ebx;
+    int i = sys_readdir(d->fd, &d->ent);
+    if (i == 0) {
+        d->cur_entry++;
+    }
+    return i;
 }
 
 static int syscall_getegid()
@@ -173,6 +183,9 @@ static void *syscall_table[] = {
     [SYSCALL_GETEGID] = syscall_getegid,
     [SYSCALL_GETEUID] = syscall_geteuid,
     [SYSCALL_GETUID] = syscall_getuid,
+    [SYSCALL_OPENDIR] = sys_open,
+    [SYSCALL_READDIR] = syscall_readdir,
+    [SYSCALL_CLOSEDIR] = syscall_closedir,
     [0xce] = dup2
 };
 
@@ -185,7 +198,7 @@ void handle_syscall_routine(struct regs *r)
         r->eax = -EINVAL;
     } else {
         log(KERN_DEBUG, "(PID: %i) syscall (eax: %i, ebx: %x, ecx: %x, edx: %x)\n", get_pid() ,r->eax, r->ebx, r->ecx, r->edx);
-        current_process->user_regs = r;
+        current_thread->user_regs = r;
         syscall_handler handler = syscall_table[r->eax];
         r->eax = handler(r->ebx, r->ecx, r->edx);
         log(KERN_DEBUG, "%i\n", r->eax);

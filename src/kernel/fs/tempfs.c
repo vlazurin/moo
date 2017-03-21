@@ -10,6 +10,7 @@ struct vfs_node *spawn_node(struct vfs_super *super, char *name, mode_t mode);
 vfs_node_t *create_root(void *obj);
 int create_node(vfs_node_t *node, char *path, mode_t mode, struct vfs_file_operations *file_ops, void *obj, vfs_node_t **out);
 static vfs_node_t* lookup(vfs_node_t *node, char *name);
+static int readdir(vfs_file_t *fd, struct dirent *ent, uint32_t *pos);
 
 vfs_fs_operations_t tempfs_ops = {
     .read_super = &read_super
@@ -24,7 +25,26 @@ vfs_node_operations_t tempfs_node_ops = {
     .lookup = &lookup,
 };
 
-struct vfs_file_operations tempfs_file_ops = {0};
+struct vfs_file_operations tempfs_file_ops = {
+    .readdir = &readdir
+};
+
+static int readdir(vfs_file_t *file, struct dirent *ent, uint32_t *pos)
+{
+    int c = 0;
+    struct vfs_node *node = file->node->children;
+    while(c < *pos && node != NULL) {
+        node = (struct vfs_node*)node->list.next;
+        c++;
+    }
+    if (node == NULL) {
+        return -ENOENT;
+    }
+    strcpy(ent->d_name, node->name);
+
+    *pos += 1;
+    return 0;
+}
 
 struct vfs_node *spawn_node(struct vfs_super *super, char *name, mode_t mode)
 {

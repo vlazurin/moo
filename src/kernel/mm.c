@@ -11,8 +11,8 @@ uint8_t *bitmap = (uint8_t*) MM_BITMAP_VIRTUAL;
 page_directory_t * volatile page_directory = (page_directory_t*)PAGE_DIRECTORY_VIRTUAL;
 uint8_t *heap = (uint8_t*)KERNEL_HEAP;
 uint8_t *hardware_space = (uint8_t*)HARDWARE_SPACE;
-mutex_t liballoc_mutex = 0;
-mutex_t mm_mutex = 0;
+mutex_t liballoc_mutex = {0};
+mutex_t mm_mutex = {0};
 
 int liballoc_lock()
 {

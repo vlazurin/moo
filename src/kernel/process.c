@@ -28,6 +28,8 @@ static void process_bootstrap(char *path)
 
 uint8_t exec(char *path)
 {
+    // create_process increased count for process & initial thread, because they have cross references
+    // we don't need ref_inc here, because process isn't scheduled.... only our thread can access it
     struct process *p = create_process(&process_bootstrap, (uint32_t)path);
     schedule_process(p);
     return 0;

@@ -10,7 +10,7 @@
 #include "stdlib.h"
 
 network_device_t *network_devices = 0;
-mutex_t network_devices_mutex = 0;
+mutex_t network_devices_mutex = {0};
 
 uint16_t bswap16(uint16_t value)
 {

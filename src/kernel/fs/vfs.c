@@ -13,7 +13,7 @@
 
 static struct vfs_fs_type *registered_fs[MAX_FS_TYPES_COUNT];
 static vfs_node_t *vfs_root = 0;
-static mutex_t vfs_mutex = 0;
+static mutex_t vfs_mutex = {0};
 
 /**
  * Function isn't thread safe.
@@ -273,6 +273,21 @@ int sys_read(file_descriptor_t fd, void *buf, uint32_t size)
     }
 
     int err = file->ops->read(file, buf, size, &file->pos);
+    return err;
+}
+
+int sys_readdir(file_descriptor_t fd, struct dirent *ent)
+{
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
+        return -EBADF;
+    }
+
+    vfs_file_t *file = current_process->files[fd];
+    if (file->ops == NULL || file->ops->readdir == NULL) {
+        return -EPERM;
+    }
+
+    int err = file->ops->readdir(file, ent, &file->pos);
     return err;
 }
 

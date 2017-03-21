@@ -7,8 +7,8 @@
 #define PAGE_ALIGN(n) ALIGN(n, 0x1000)
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-#define ref_count_inc(v) (__sync_add_and_fetch(v->ref_count, 1));
-#define ref_count_dec(v) (__sync_sub_and_fetch(v->ref_count, 1));
+#define ref_inc(v) (__sync_add_and_fetch(v, 1))
+#define ref_dec(v) (__sync_sub_and_fetch(v, 1))
 
 uint16_t crc16(uint8_t *data, uint32_t length);
 

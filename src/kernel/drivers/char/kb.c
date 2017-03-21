@@ -104,14 +104,15 @@ static void keyboard_handler(struct regs *r)
     } else if (scancode == KRLEFT_SHIFT || scancode == KRRIGHT_SHIFT) {
         modifiers.shift = 1;
     } else {
-        uint8_t b = buffer->mutex;
-        buffer->mutex = 0;
+        assert(0 && "direct mutex flag usage");
+        uint8_t b = buffer->mutex.flag;
+        buffer->mutex.flag = 0;
         if (modifiers.shift == 1) {
             buffer->add(buffer, (char*)&ascii_shift[scancode], 1);
         } else {
             buffer->add(buffer, (char*)&ascii_non_shift[scancode], 1);
         }
-        buffer->mutex = b;
+        buffer->mutex.flag = b;
     }
 }
 

@@ -84,16 +84,23 @@ struct stat {
     blkcnt_t st_blocks;
 };
 
-typedef struct dirent
-{
-    char name[VFS_NODE_NAME_LENGTH];
-} dirent_t;
+typedef struct dirent {
+	uint32_t d_ino;
+	char d_name[256];
+} dirent;
+
+typedef struct DIR {
+	int fd;
+	int cur_entry;
+    struct dirent ent;
+} DIR;
 
 struct vfs_super {
     struct ata_device *dev;
     struct vfs_super_operations *ops;
     struct vfs_node *local_root;
     void *private;
+    int volatile ref_count;
 };
 
 typedef struct vfs_fs_operations
@@ -118,6 +125,7 @@ struct vfs_file_operations
 {
     int (*open)(vfs_file_t*, uint32_t);
     int (*read)(vfs_file_t*, void*, uint32_t, uint32_t*);
+    int (*readdir)(vfs_file_t*, struct dirent*, uint32_t*);
     int (*write)(vfs_file_t*, void*, uint32_t, uint32_t*);
     int (*close)(vfs_file_t*);
 };
@@ -135,6 +143,7 @@ struct vfs_node
     struct vfs_super *super;
     vfs_node_operations_t *ops;
     vfs_file_operations_t *file_ops;
+    int volatile ref_count;
 };
 
 struct vfs_fs_type
@@ -154,10 +163,14 @@ struct vfs_file
     uint32_t pid;
     int flags;
     uint32_t pos;
+    mutex_t mutex;
+    int opened;
+    int volatile ref_count;
 };
 
 int register_fs(struct vfs_fs_type *fs);
 int mount_fs(char *path, char *fs_name, struct ata_device *dev);
+int sys_readdir(file_descriptor_t fd, struct dirent *ent);
 int mkdir(char *path);
 file_descriptor_t sys_open(char *path, int flags);
 int sys_read(file_descriptor_t fd, void *buf, uint32_t size);

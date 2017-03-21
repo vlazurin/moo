@@ -3,7 +3,7 @@
 #include "rand.h"
 #include "log.h"
 
-mutex_t mutex = 0;
+mutex_t mutex = {0};
 pcg32_random_t rand = { 0xF15B48A0C371D4EBULL, 0xDB4592AF6B9C28F2ULL };
 
 uint32_t get_random()

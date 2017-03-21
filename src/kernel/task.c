@@ -9,38 +9,43 @@
 #include <stdbool.h>
 #include "irq.h"
 #include "mm.h"
+#include "gdt.h"
 
 extern void perform_task_switch(uint32_t eip, uint32_t ebp, uint32_t esp);
+extern void return_to_userspace();
 extern uint32_t read_eip();
 
-uint8_t volatile task_switch_required = 0;
-static struct process *processes;
-static volatile mutex_t global_mutex;
-struct process *current_process = 0;
-static struct process *fg_process = 0;
- struct thread *current_thread = 0;
-static int next_pid = 0;
-void set_kernel_stack(uintptr_t stack);
 extern page_directory_t *page_directory;
 
-static void terminate_thread()
+static struct process *process_list;
+
+struct process *current_process = NULL;
+struct thread *current_thread = NULL;
+static struct process *fg_process = NULL;
+
+uint8_t volatile task_switch_required = 0;
+static mutex_t global_mutex = {0};
+static int next_pid = 0;
+
+static void stop_thread()
 {
     assert((uint32_t)current_thread >= KERNEL_SPACE_ADDR);
-    cli();
+    // report first, because no garanties that log() will be called after state change
+    log(KERN_INFO, "thread %i stopped\n", current_thread->id);
+    // very simple changes, mutex lock isn't needed
     current_thread->state = THREAD_STOPED;
-    sti();
-    log(KERN_INFO, "(PID %i) thread %i terminated\n", current_process->id, current_thread->id);
     force_task_switch();
 }
 
 static void thread_header(void *entry_point, uint32_t arg)
 {
     assert((uintptr_t)entry_point >= KERNEL_SPACE_ADDR);
+
     void (*func)(uint32_t) = entry_point;
     func(arg);
-    terminate_thread();
-    assert(false && "thread isn't terminated, system is unstable.");
-    while(true);
+    stop_thread();
+    log(KERN_FATAL, "thread %i isn't stopped, system is unstable", current_thread->id);
+    hlt();
 }
 
 static struct thread *create_thread()
@@ -50,31 +55,51 @@ static struct thread *create_thread()
     thread->state = THREAD_RUNNING;
     thread->regs.eip = (uint32_t)&thread_header;
     thread->stack_mem = kmalloc(THREAD_STACK_SIZE);
-    // TODO: should stack be aligned on 16 bytes boundary?
-    thread->regs.ebp = (uintptr_t)thread->stack_mem + THREAD_STACK_SIZE;
+    thread->regs.ebp = ALIGN((uintptr_t)thread->stack_mem + THREAD_STACK_SIZE - 16, 16);
     thread->regs.esp = thread->regs.ebp;
     return thread;
 }
 
 void stop_process()
 {
+    // stop all other threads, so nobody can work with files while current thread closes them
+    // ref_count++ for thread isn't needed, thread can't be removed from list because of process mutex lock
+    mutex_lock(&current_process->mutex);
+    struct thread *iterator = current_process->threads;
+    while(iterator != 0) {
+        if (iterator != current_thread) {
+            // very simple changes, mutex lock isn't needed
+            iterator->state = THREAD_STOPED;
+        }
+        iterator = (struct thread*)iterator->list.next;
+    }
+    mutex_release(&current_process->mutex);
+
+    // now only one thread is alive, so current_process can be changed without lock (or sys_close will cause deadlock)
+    int err = 0;
     for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
         if (current_process->files[i] != NULL) {
-            sys_close(i);
+            err = sys_close(i);
+            if (err) {
+                debug("stop_process() -> sys_close(%i) error %i\n", i, err);
+            }
         }
     }
 
     free_userspace();
 
-    cli();
-    struct thread *iterator = current_process->threads;
-    while(iterator != 0) {
-        iterator->state = THREAD_STOPED;
-        iterator = (struct thread*)iterator->list.next;
+    if (get_fg_pid() == get_pid()) {
+        set_fg_pid(current_process->parent_id);
     }
+
     current_process->state = PROCESS_STOPED;
-    sti();
     force_task_switch();
+}
+
+static void failsafe_return()
+{
+    log(KERN_ERR, "failsafe_return() called, system is unstable");
+    hlt();
 }
 
 void start_thread(void *entry_point, uint32_t arg)
@@ -85,14 +110,17 @@ void start_thread(void *entry_point, uint32_t arg)
     assert(current_process->next_thread_id < 0xFFFFFF00);
 
     struct thread *thread = create_thread();
+    ref_inc(&thread->ref_count);
     PUSH_STACK(thread->regs.esp, arg);
     PUSH_STACK(thread->regs.esp, entry_point);
      // thread_header must kill thread, but it's good to have return address for failsafe
-    PUSH_STACK(thread->regs.esp, &terminate_thread);
+    PUSH_STACK(thread->regs.esp, &failsafe_return);
 
     thread->process = current_process;
+    ref_inc(&current_process->ref_count);
     thread->id = __sync_fetch_and_add(&current_process->next_thread_id, 1);
 
+    ref_inc(&thread->ref_count);
     cli();
     add_to_list(current_process->threads, thread);
     sti();
@@ -128,10 +156,12 @@ struct process *create_process(void *entry_point, uint32_t arg)
     PUSH_STACK(thread->regs.esp, arg);
     PUSH_STACK(thread->regs.esp, entry_point);
      // thread_header must terminate thread, but it's good to have return address for failsafe
-    PUSH_STACK(thread->regs.esp, &terminate_thread);
+    PUSH_STACK(thread->regs.esp, &stop_thread);
 
     thread->process = process;
     process->threads = thread;
+    ref_inc(&thread->ref_count);
+    ref_inc(&process->ref_count);
 
     return process;
 }
@@ -139,9 +169,11 @@ struct process *create_process(void *entry_point, uint32_t arg)
 void schedule_process(struct process *p)
 {
     assert((uint32_t)p >= KERNEL_SPACE_ADDR && (uint32_t)p->threads >= KERNEL_SPACE_ADDR);
-    cli();
     p->state = PROCESS_RUNNING;
-    add_to_list(processes, p);
+
+    ref_inc(&p->ref_count);
+    cli();
+    add_to_list(process_list, p);
     sti();
 }
 
@@ -169,18 +201,22 @@ int get_gid()
 
 void set_fg_pid(uint32_t pid)
 {
-    assert((uint32_t)processes >= KERNEL_SPACE_ADDR);
-    cli();
-    struct process *iterator = processes;
+    assert((uint32_t)process_list >= KERNEL_SPACE_ADDR);
+    mutex_lock(&global_mutex);
+    struct process *iterator = process_list;
     while(iterator != 0) {
         if (iterator->id == pid) {
-            log(KERN_INFO, "foreground PID %i\n", iterator->id);
+            if (fg_process != NULL) {
+                ref_dec(&fg_process->ref_count);
+            }
             fg_process = iterator;
+            ref_inc(&fg_process->ref_count);
             break;
         }
         iterator = (struct process*)iterator->list.next;
     }
-    sti();
+    mutex_release(&global_mutex);
+    log(KERN_INFO, "foreground PID %i\n", iterator->id);
 }
 
 uint32_t get_fg_pid()
@@ -189,21 +225,27 @@ uint32_t get_fg_pid()
     return fg_process->id;
 }
 
-extern void return_to_userspace();
 int fork()
 {
     struct process *p = create_process(0, 0);
     p->parent_id = get_pid();
+
+    mutex_lock(&current_process->mutex);
+
     p->group_id = current_process->group_id;
     strcpy(p->cur_dir, current_process->cur_dir);
 
     for(uint32_t i = 0; i < MAX_OPENED_FILES; i++) {
         if (current_process->files[i] != NULL) {
+            mutex_lock(&current_process->files[i]->mutex);
             p->files[i] = kmalloc(sizeof(vfs_file_t));
             memcpy(p->files[i], current_process->files[i], sizeof(vfs_file_t));
+            mutex_release(&current_process->files[i]->mutex);
             p->files[i]->pid = p->id;
         }
     }
+
+    mutex_release(&current_process->mutex);
 
     void *buffer_chunk = kmalloc(0x2000);
     void *buffer = (void*)PAGE_ALIGN((uint32_t)buffer_chunk);
@@ -231,7 +273,7 @@ int fork()
     map_virtual_to_physical((uint32_t)buffer, buffer_phys_back);
     kfree(buffer_chunk);
 
-    memcpy(p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs), current_process->user_regs, sizeof(struct regs));
+    memcpy(p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs), current_thread->user_regs, sizeof(struct regs));
     p->threads[0].regs.esp = (uint32_t)p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs);
     p->threads[0].regs.ebp = p->threads[0].regs.esp;
     p->threads[0].regs.eip = (uint32_t)&return_to_userspace;
@@ -241,8 +283,9 @@ int fork()
     p->state = PROCESS_RUNNING;
     p->threads->state = THREAD_RUNNING;
 
+    ref_inc(&p->ref_count);
     cli();
-    add_to_list(processes, p);
+    add_to_list(process_list, p);
     sti();
     return child_pid;
 }
@@ -251,62 +294,78 @@ int wait_pid(int pid, int *status, int options)
 {
     while(1) {
         if (pid == -1) {
-            cli();
-            struct process *iterator = processes;
+            mutex_lock(&global_mutex);
+            struct process *iterator = process_list;
             while(iterator != NULL) {
                 if (iterator->parent_id == current_process->id && iterator->state == PROCESS_DEAD) {
-                    delete_from_list((void*)&processes, iterator);
+                    cli();
+                    // no ref_dec here, because we also need to do ref_inc (function will keep pointer after global_mutex release)
+                    delete_from_list((void*)&process_list, iterator);
+                    sti();
                     break;
                 }
                 iterator = (struct process*)iterator->list.next;
             }
-            sti();
+            mutex_release(&global_mutex);
             if (iterator == NULL) {
                 if (options & WNOHANG) {
                     return -ECHILD;
                 }
                 continue;
             } else {
-                //TODO: FREE PROCESS MEMORY
+                //TODO: return correct status
                 *status = 0x0;
                 int id = iterator->id;
-                kfree(iterator);
+                debug("wait_pid: iterator ref_count is %i\n", iterator->ref_count);
+                if (ref_dec(&iterator->ref_count) == 0) {
+                    debug("wait_pid is trying to free dead process %i\n", id);
+                    kfree(iterator);
+                }
 
                 return id;
             }
         }
+        force_task_switch();
     }
 }
 
-struct process *proc_by_id(int pid)
+int set_proc_group(int pid, int group_id)
 {
-    cli();
-    struct process *iterator = processes;
+    mutex_lock(&global_mutex);
+    struct process *iterator = process_list;
     while(iterator != NULL) {
         if (iterator->id == pid) {
-            sti();
-            return iterator;
+            iterator->group_id = group_id;
+            mutex_release(&global_mutex);
+            return 0;
         }
         iterator = (struct process*)iterator->list.next;
     }
-    sti();
-    return NULL;
+    mutex_release(&global_mutex);
+    return -ESRCH;
 }
 
 static void killer()
 {
     while(true) {
-        cli();
-        struct process *iterator = processes;
+        mutex_lock(&global_mutex);
+        struct process *iterator = process_list;
         while(iterator != NULL) {
+            mutex_lock(&iterator->mutex);
             struct thread *thread_iterator = iterator->threads;
             while(thread_iterator != NULL) {
-                if (thread_iterator->state == THREAD_STOPED) {
+                if (thread_iterator->state == THREAD_STOPED || iterator->state == PROCESS_STOPED) {
+                    thread_iterator->state = THREAD_STOPED;
                     struct thread *tmp = thread_iterator;
-                    kfree(thread_iterator->stack_mem);
                     thread_iterator = (struct thread*)thread_iterator->list.next;
+                    cli();
                     delete_from_list((void*)&iterator->threads, tmp);
-                    kfree(tmp);
+                    sti();
+                    if (ref_dec(&tmp->ref_count) == 0) {
+                        kfree(tmp->stack_mem);
+                        kfree(tmp);
+                        ref_dec(&iterator->ref_count);
+                    }
                     continue;
                 }
                 thread_iterator = (struct thread*)thread_iterator->list.next;
@@ -317,9 +376,10 @@ static void killer()
                 kfree(iterator->page_dir_base);
             }
 
+            mutex_release(&iterator->mutex);
             iterator = (struct process*)iterator->list.next;
         }
-        sti();
+        mutex_release(&global_mutex);
         force_task_switch();
     }
 }
@@ -342,14 +402,19 @@ void init_multitasking()
     thread->id = 0;
     thread->state = THREAD_RUNNING;
     thread->process = process;
+    ref_inc(&process->ref_count);
     set_kernel_stack((uint32_t)thread->stack_mem + KERNEL_STACK_SIZE);
 
     process->threads = thread;
+    ref_inc(&thread->ref_count);
 
     current_thread = thread;
     current_process = process;
 
-    processes = process;
+    ref_inc(&current_process->ref_count);
+    ref_inc(&current_thread->ref_count);
+
+    process_list = process;
     start_thread(killer, 0);
 }
 
@@ -378,20 +443,38 @@ void switch_task()
     struct thread *th = (struct thread*)current_thread->list.next;
     struct process *ps = current_process;
     // TODO: save fpu state
+    int c = 0;
     while(true) {
+        if (c > 100) {
+            debug("switch_task infinity loop\n");
+            struct process *iterator = process_list;
+            while(iterator != NULL) {
+                struct thread *thread_iterator = iterator->threads;
+                while(thread_iterator != NULL) {
+                    debug("%i %i\n", iterator->id, thread_iterator->id);
+                    thread_iterator = (struct thread*)thread_iterator->list.next;
+                }
+                iterator = (struct process*)iterator->list.next;
+            }
+            hlt();
+        }
+
         if (ps == NULL) {
-            ps = processes;
+            ps = process_list;
             th = ps->threads;
+            c++;
             continue;
         }
         if (th == NULL || ps->state != PROCESS_RUNNING) {
             ps = (struct process*)ps->list.next;
             th = ps->threads;
+            c++;
             continue;
         }
         assert(th != NULL);
-        if (th->state == THREAD_STOPED) {
+        if (th->state != THREAD_RUNNING) {
             th = (struct thread*)th->list.next;
+            c++;
             continue;
         }
         break;
@@ -416,8 +499,12 @@ void switch_task()
         asm("mov %eax, %cr3");
     }
 
+    ref_dec(&current_process->ref_count);
+    ref_dec(&current_thread->ref_count);
     current_process = ps;
     current_thread = th;
+    ref_inc(&current_process->ref_count);
+    ref_inc(&current_thread->ref_count);
     set_kernel_stack((uint32_t)th->stack_mem + KERNEL_STACK_SIZE);
 
     perform_task_switch(current_thread->regs.eip, current_thread->regs.ebp, current_thread->regs.esp);

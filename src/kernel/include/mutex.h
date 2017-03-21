@@ -3,7 +3,11 @@
 
 #include <stdint.h>
 
-typedef volatile uint8_t mutex_t;
+
+typedef struct mutex {
+    struct sleep_item *queue;
+    volatile uint8_t flag;
+}  mutex_t;
 
 //#define mutex_lock(m) debug("mutex lock at %s: %i\n", __FILE__, __LINE__); _mutex_lock(m)
 //#define mutex_release(m) debug("mutex release at %s: %i\n", __FILE__, __LINE__); _mutex_release(m)

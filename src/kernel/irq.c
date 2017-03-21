@@ -98,20 +98,21 @@ static const char *ex_messages[32] = {
 
 void irq_handler(struct regs *r)
 {
-   if (irq_handlers[r->int_num] != NULL) {
-       irq_handlers[r->int_num](r);
-   } else if (r->int_num < 32) {
-       log(KERN_FATAL, "unhandled CPU exception: %s, EIP: %x\n", ex_messages[r->int_num], r->eip);
-       hlt();
-   }
+    sti(); // TODO: is it safe to do sti() here? Nested IRQ support must be implemented
+    if (irq_handlers[r->int_num] != NULL) {
+        irq_handlers[r->int_num](r);
+    } else if (r->int_num < 32) {
+        log(KERN_FATAL, "unhandled CPU exception: %s, EIP: %x\n", ex_messages[r->int_num], r->eip);
+        hlt();
+    }
 
-   if (r->int_num >= 32 || r->int_num <= 47) {
-       if (r->int_num >= 40) {
-           outb(0xA0, 0x20);
-       }
-       outb(0x20, 0x20);
-   }
-   switch_task();
+    if (r->int_num >= 32 || r->int_num <= 47) {
+        if (r->int_num >= 40) {
+            outb(0xA0, 0x20);
+        }
+        outb(0x20, 0x20);
+    }
+    switch_task();
 }
 
 static void set_irq_gate(uint8_t number, void *handler)

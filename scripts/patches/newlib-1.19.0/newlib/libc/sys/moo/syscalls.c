@@ -24,6 +24,7 @@ typedef struct dirent {
 typedef struct DIR {
 	int fd;
 	int cur_entry;
+    struct dirent ent;
 } DIR;
 
 #define DEFN_SYSCALL0(fn, num) \
@@ -84,6 +85,9 @@ typedef struct DIR {
 #define SYSCALL_GETEGID 26
 #define SYSCALL_GETEUID 27
 #define SYSCALL_GETUID 28
+#define SYSCALL_OPENDIR 29
+#define SYSCALL_READDIR 30
+#define SYSCALL_CLOSEDIR 31
 
 DEFN_SYSCALL0(fork, SYSCALL_FORK);
 DEFN_SYSCALL3(write, SYSCALL_WRITE, int, char *, int);
@@ -120,6 +124,9 @@ DEFN_SYSCALL3(waitpid, SYSCALL_WAITPID, int, int*, int);
 DEFN_SYSCALL1(sigsuspend, SYSCALL_SIGSUSPEND, sigset_t*);
 DEFN_SYSCALL3(sigaction, SYSCALL_SIGACTION, int, struct sigaction*, struct sigaction*);
 DEFN_SYSCALL3(fcntl, SYSCALL_FCNTL, int, int, int);
+DEFN_SYSCALL1(opedir, SYSCALL_OPENDIR, char*);
+DEFN_SYSCALL1(readdir, SYSCALL_READDIR, struct DIR*);
+DEFN_SYSCALL1(closedir, SYSCALL_CLOSEDIR, struct DIR*);
 
 __attribute__((noreturn)) void __stack_chk_fail(void)
 {
@@ -268,9 +275,35 @@ int fcntl(int fd, int cmd, ...)
 
 struct DIR *opendir(const char *name)
 {
-    syscall_debug("opendir isn't implemented\n", 27);
-    errno = -ENOENT;
-    return NULL;
+    int i = syscall_opedir(name);
+    if (i < 0) {
+        errno = i;
+        return NULL;
+    }
+    struct DIR *d = malloc(sizeof(struct DIR));
+    d->cur_entry = 0;
+    d->fd = i;
+
+    return d;
+}
+
+int closedir(DIR *dirp)
+{
+    int i = syscall_closedir(dirp);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+}
+
+struct dirent *readdir(DIR *dirp)
+{
+    int i = syscall_readdir(dirp);
+    if (i < 0) {
+        errno = i;
+        return NULL;
+    }
+    return &dirp->ent;
 }
 
 pid_t tcgetpgrp(int fd)
@@ -297,18 +330,6 @@ pid_t wait3(int *status, int options, struct rusage *rusage)
 		return -1;
 	}
 	return i;
-}
-
-int closedir(DIR *dirp)
-{
-    syscall_debug("closedir isn't implemented\n", 28);
-    return -1;
-}
-
-struct dirent *readdir(DIR *dirp)
-{
-    syscall_debug("readdir isn't implemented\n", 27);
-    return -1;
 }
 
 int setpgid(pid_t pid, pid_t pgid)

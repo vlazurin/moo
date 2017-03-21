@@ -10,7 +10,6 @@
 #define SERIAL_PORT_3 0x3E8
 #define SERIAL_PORT_4 0x2E8
 
-static mutex_t mutex = 0;
 buffer_t *buffers[4];
 uint32_t ports[4] = {SERIAL_PORT_1, SERIAL_PORT_2, SERIAL_PORT_3, SERIAL_PORT_4};
 
@@ -72,10 +71,11 @@ static void read_serial_intr(uint32_t index)
     // because system has no ideas how much data will come and system can go to infinity loop
     while ((inb(ports[index] + 5) & 0x01) == 0);
     char c = inb(ports[index]);
-    uint8_t b = buffers[index]->mutex;
-    buffers[index]->mutex = 0;
+    assert(0 && "direct mutex flag usage");
+    uint8_t b = buffers[index]->mutex.flag;
+    buffers[index]->mutex.flag = 0;
     buffers[index]->add(buffers[index], (void*)&c, 1);
-    buffers[index]->mutex = b;
+    buffers[index]->mutex.flag = b;
 }
 
 static void serial_1_3_handler(struct regs *r)

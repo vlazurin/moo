@@ -46,7 +46,7 @@ driver_map_node_t driver_map[] = {
 };
 
 pci_device_t *pci_devices = 0;
-mutex_t pci_devices_mutex = 0;
+mutex_t pci_devices_mutex = {0};
 
 uint32_t pci_config_read(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)
 {

@@ -15,8 +15,3 @@ cd ./build
 cmake ../src
 make
 ```
-## How to run system in VirtualBox
-```bash
-./create_vm.sh
-./run.sh
-```

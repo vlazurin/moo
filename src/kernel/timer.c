@@ -6,7 +6,7 @@
 #include "mutex.h"
 
 timer_t *timers = 0;
-mutex_t timers_mutex = 0;
+mutex_t timers_mutex = {0};
 
 void process_timers()
 {

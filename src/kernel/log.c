@@ -14,7 +14,7 @@ early_write_e9(message); \
 early_write_com(message);
 
 static int log_level = KERN_DEBUG;
-static mutex_t mutex = 0;
+static mutex_t mutex = {0};
 static char message[MAX_STR_LENGTH];
 static char *labels[] = {
     "[FATAL] ",

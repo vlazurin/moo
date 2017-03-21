@@ -8,7 +8,7 @@
 
 // probably arp_cache must be in net_dev, but i have no plans to support machines with 2+ network cards
 arp_entry_t *arp_cache = 0;
-mutex_t arp_cache_mutex = 0;
+mutex_t arp_cache_mutex = {0};
 
 void process_arp_request(network_device_t *net_dev, void *packet)
 {

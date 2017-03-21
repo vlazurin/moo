@@ -17,6 +17,7 @@ static int create_node(vfs_node_t *node, char *path, mode_t mode, struct vfs_fil
 static vfs_node_t* lookup(vfs_node_t *node, char *name);
 static int read(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos);
 static int write(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos);
+static int readdir(vfs_file_t *fd, struct dirent *ent, uint32_t *pos);
 
 struct fat16_super_private {
     struct boot_sector bs;
@@ -46,7 +47,8 @@ static struct vfs_super_operations fat16fs_super_ops = {
 
 static struct vfs_file_operations fat16fs_file_ops = {
     .read = &read,
-    .write = &write
+    .write = &write,
+    .readdir = &readdir
 };
 
 /**
@@ -153,7 +155,7 @@ static void process_directory_entries(struct vfs_node *node, struct fat_entry *e
         node_p->directory_index = index;
         new->obj = node_p;
         new->parent = node;
-        debug("%s %i\n", new->name, entry->start_cluster);
+        //debug("%s %i\n", new->name, entry->start_cluster);
         add_to_list(node->children, new);
         entry++;
         index++;
@@ -270,10 +272,35 @@ static struct vfs_node *spawn_node(struct vfs_super *super, char *name, mode_t m
     return node;
 }
 
+static int readdir(vfs_file_t *file, struct dirent *ent, uint32_t *pos)
+{
+    if (file->node->loaded == false) {
+        load_directory_content(file->node);
+    }
+
+    int c = 0;
+    struct vfs_node *node = file->node->children;
+    while(c < *pos && node != NULL) {
+        node = (struct vfs_node*)node->list.next;
+        c++;
+    }
+    if (node == NULL) {
+        return -ENOENT;
+    }
+    strcpy(ent->d_name, node->name);
+
+    *pos += 1;
+    return 0;
+}
+
 static int read(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos)
 {
     if (*pos >= file->node->size) {
         return 0;
+    }
+
+    if (*pos + size > file->node->size) {
+        size = file->node->size - *pos;
     }
 
     struct fat16_super_private *private = file->node->super->private;
@@ -286,7 +313,7 @@ static int read(vfs_file_t *file, void *buffer, uint32_t size, uint32_t *pos)
     uint16_t skipped_clusters = 0;
     uint32_t pos_in_cluster = *pos % bytes_in_cluster;
     uint16_t cluster = ((struct fat16_node_private*)file->node->obj)->cluster;
-    debug("reading %i %i\n", cluster, *pos);
+    //debug("reading %i %i\n", cluster, *pos);
     while(readed < size && cluster <= 0xFFF8) {
         if (skipped_clusters < start_from_cluster) {
             cluster = private->fat[cluster];

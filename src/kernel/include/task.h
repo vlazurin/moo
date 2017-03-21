@@ -11,6 +11,7 @@
 
 #define THREAD_RUNNING 1
 #define THREAD_STOPED 2
+#define THREAD_SLEEPING 3
 #define PROCESS_RUNNING 1
 #define PROCESS_STOPED 2
 #define PROCESS_DEAD 3
@@ -29,6 +30,8 @@ struct thread
     void* stack_mem;
     struct process *process;
     uint8_t state;
+    int volatile ref_count;
+    struct regs *user_regs;
 };
 
 struct process
@@ -47,7 +50,8 @@ struct process
     void *page_dir_base;
     void *brk;
     char cur_dir[MAX_PATH_LENGTH];
-    struct regs *user_regs;
+    int volatile ref_count;
+    mutex_t mutex;
 };
 
 extern struct process *current_process;
@@ -66,7 +70,7 @@ int get_p_pid();
 int get_gid();
 int fork();
 void stop_process();
-struct process *proc_by_id(int pid);
+int set_proc_group(int pid, int group_id);
 int wait_pid(int pid, int *status, int options);
 int execve(char *path, char **argv, char **envp);
 vfs_file_t *get_file(file_descriptor_t fd);

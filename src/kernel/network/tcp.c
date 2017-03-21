@@ -12,7 +12,7 @@
 
 // TCP sockets data must be stored in net_dev, but i have no plans to support machines with 2+ lan cards
 tcp_socket_binder_t **tcp_binders = 0;
-mutex_t tcp_binders_mutex = 0;
+mutex_t tcp_binders_mutex = {0};
 
 uint8_t send_tcp_packet(tcp_socket_t *socket, uint8_t flags, void* payload, uint16_t size);
 
@@ -408,7 +408,8 @@ void process_tcp_data()
                 continue;
             }
 
-            if (__sync_lock_test_and_set(&tcp_binders[port]->mutex, 1))
+            assert(0 && "sleep queue isn't used becauf of direct flag usage");
+            if (__sync_lock_test_and_set(&tcp_binders[port]->mutex.flag, 1))
             {
                 // binder will be handled next time
                 continue;

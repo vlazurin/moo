@@ -1,0 +1,12 @@
+diff -rupN original/libpng-1.5.28/config.sub changed/libpng-1.5.28/config.sub
+--- original/libpng-1.5.28/config.sub	2015-02-21 20:40:43.000000000 +0200
++++ changed/libpng-1.5.28/config.sub	2017-02-02 16:50:56.000000000 +0200
+@@ -1368,7 +1368,7 @@ case $os in
+ 	# The portable systems comes first.
+ 	# Each alternative MUST END IN A *, to match a version number.
+ 	# -sysv* is not here because it comes later, after sysvr4.
+-	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
++	-gnu* | -moo* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \

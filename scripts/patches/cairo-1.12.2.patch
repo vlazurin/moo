@@ -1,0 +1,12 @@
+diff -rupN original/cairo-1.12.2/build/config.sub changed/cairo-1.12.2/build/config.sub
+--- original/cairo-1.12.2/build/config.sub	2012-02-14 03:52:37.000000000 +0200
++++ changed/cairo-1.12.2/build/config.sub	2017-03-23 11:16:43.000000000 +0200
+@@ -1337,7 +1337,7 @@ case $os in
+ 	# The portable systems comes first.
+ 	# Each alternative MUST END IN A *, to match a version number.
+ 	# -sysv* is not here because it comes later, after sysvr4.
+-	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
++	-gnu* | -moo* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* \

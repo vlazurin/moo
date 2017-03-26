@@ -1,0 +1,12 @@
+diff -rupN original/freetype-2.4.9/builds/unix/config.sub changed/freetype-2.4.9/builds/unix/config.sub
+--- original/freetype-2.4.9/builds/unix/config.sub	2012-03-08 22:09:13.000000000 +0200
++++ changed/freetype-2.4.9/builds/unix/config.sub	2017-01-17 13:14:48.000000000 +0200
+@@ -1337,7 +1337,7 @@ case $os in
+ 	# The portable systems comes first.
+ 	# Each alternative MUST END IN A *, to match a version number.
+ 	# -sysv* is not here because it comes later, after sysvr4.
+-	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
++	-gnu* | -moo* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* \

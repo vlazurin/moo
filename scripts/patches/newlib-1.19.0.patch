@@ -1,6 +1,6 @@
-diff -c -r ./toolchain/original/newlib-1.19.0/config.sub ./toolchain/newlib-1.19.0/config.sub
-*** ./toolchain/original/newlib-1.19.0/config.sub	Tue Jun  1 20:53:40 2010
---- ./toolchain/newlib-1.19.0/config.sub	Sat Nov 19 22:46:50 2016
+diff -c -r original/newlib-1.19.0/config.sub changed/newlib-1.19.0/config.sub
+*** original/newlib-1.19.0/config.sub	Tue Jun  1 20:53:40 2010
+--- changed/newlib-1.19.0/config.sub	Sat Nov 19 22:46:50 2016
 ***************
 *** 1292,1298 ****
   	# The portable systems comes first.
@@ -18,9 +18,9 @@ diff -c -r ./toolchain/original/newlib-1.19.0/config.sub ./toolchain/newlib-1.19
   	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
   	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
   	      | -sym* | -kopensolaris* \
-diff -c -r ./toolchain/original/newlib-1.19.0/newlib/configure.host ./toolchain/newlib-1.19.0/newlib/configure.host
-*** ./toolchain/original/newlib-1.19.0/newlib/configure.host	Thu Dec  2 21:30:46 2010
---- ./toolchain/newlib-1.19.0/newlib/configure.host	Sat Nov 19 22:47:39 2016
+diff -c -r original/newlib-1.19.0/newlib/configure.host changed/newlib-1.19.0/newlib/configure.host
+*** original/newlib-1.19.0/newlib/configure.host	Thu Dec  2 21:30:46 2010
+--- changed/newlib-1.19.0/newlib/configure.host	Sat Nov 19 22:47:39 2016
 ***************
 *** 349,354 ****
 --- 349,357 ----
@@ -33,9 +33,9 @@ diff -c -r ./toolchain/original/newlib-1.19.0/newlib/configure.host ./toolchain/
     *-*-cygwin*)
   	posix_dir=posix
   	stdio64_dir=stdio64
-diff -c -r ./toolchain/original/newlib-1.19.0/newlib/libc/sys/configure.in ./toolchain/newlib-1.19.0/newlib/libc/sys/configure.in
-*** ./toolchain/original/newlib-1.19.0/newlib/libc/sys/configure.in	Wed Feb 24 22:59:55 2010
---- ./toolchain/newlib-1.19.0/newlib/libc/sys/configure.in	Sat Nov 19 22:49:06 2016
+diff -c -r original/newlib-1.19.0/newlib/libc/sys/configure.in changed/newlib-1.19.0/newlib/libc/sys/configure.in
+*** original/newlib-1.19.0/newlib/libc/sys/configure.in	Wed Feb 24 22:59:55 2010
+--- changed/newlib-1.19.0/newlib/libc/sys/configure.in	Sat Nov 19 22:49:06 2016
 ***************
 *** 22,27 ****
 --- 22,28 ----

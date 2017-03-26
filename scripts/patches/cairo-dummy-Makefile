@@ -1,0 +1,7 @@
+derp:
+	@echo "dummy Makefile executed"
+
+all: derp
+install: derp
+distclean: derp
+clean: derp

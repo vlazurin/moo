@@ -68,7 +68,7 @@ static char** make_params(char *params, int argc)
     char **arg = current_process->brk;
     uint32_t offset = 0;
     uint32_t phys = alloc_physical_page();
-    map_virtual_to_physical((uint32_t)arg, phys);
+    map_virtual_to_physical((uint32_t)arg, phys, 0);
     char *rows = (void*)arg + sizeof(char*) * (argc + 1); // +1 for empty NULL param
     for(uint32_t i = 0; i < argc; i++) {
         uint32_t size = strlen(params + offset) + 1;
@@ -115,7 +115,7 @@ int execve(char *path, char **argv, char **envp)
     void* brk = current_process->brk;
     for(uint8_t i = 0; i < USERSPACE_STACK_SIZE / 0x1000; i++) {
         uint32_t page = alloc_physical_page();
-        map_virtual_to_physical(USERSPACE_STACK + i * 0x1000, page);
+        map_virtual_to_physical(USERSPACE_STACK + i * 0x1000, page, 0);
     }
     // restore brk because it's modified by last map_virtual_to_physical calls
     current_process->brk = brk;

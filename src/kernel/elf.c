@@ -90,7 +90,7 @@ int load_elf(char* filename, void **entry_point)
             do {
                 if (get_physical_address(start_page * 0x1000) == 0) {
                     uint32_t phys = alloc_physical_page();
-                    map_virtual_to_physical(start_page * 0x1000, phys);
+                    map_virtual_to_physical(start_page * 0x1000, phys, 0);
                 }
                 start_page++;
             }

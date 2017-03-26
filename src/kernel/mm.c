@@ -45,7 +45,7 @@ void *liballoc_alloc(size_t pages)
 
     for(uint32_t i = 0; i < pages; i++) {
         uint32_t addr = alloc_physical_page();
-        map_virtual_to_physical((uint32_t)current + i * 0x1000, addr);
+        map_virtual_to_physical((uint32_t)current + i * 0x1000, addr, 0);
     }
 
     return current;
@@ -186,7 +186,7 @@ uint32_t alloc_physical_range(uint16_t count)
     return 0;
 }
 
-void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
+void map_virtual_to_physical(uint32_t virtual, uint32_t physical, uint8_t flags)
 {
     uint32_t dir = (virtual >> 22);
     uint32_t page = (virtual >> 12) & 0x03FF;
@@ -201,7 +201,7 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
         page_directory->directory[dir] = get_physical_address((uint32_t)page_directory->pages[dir]) | 7;
     }
 
-    page_directory->pages[dir][page] = physical | 7;
+    page_directory->pages[dir][page] = physical | (7 | flags);
     asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
 
     // MUST IGNORE CALLS FOR KERNEL MEMORY, fix me
@@ -210,10 +210,10 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical)
     }
 }
 
-void map_virtual_to_physical_range(uint32_t virtual, uint32_t physical, uint16_t count)
+void map_virtual_to_physical_range(uint32_t virtual, uint32_t physical, uint8_t flags, uint16_t count)
 {
     for(uint16_t i = 0; i < count; i++) {
-        map_virtual_to_physical(virtual + i * 0x1000, physical + i * 0x1000);
+        map_virtual_to_physical(virtual + i * 0x1000, physical + i * 0x1000, flags);
     }
 }
 

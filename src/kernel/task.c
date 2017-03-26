@@ -262,7 +262,7 @@ int fork()
         for(uint32_t y = 0; y < 1024; y++) {
             if ((page_directory->pages[i][y] & 7) == 7) {
                 uint32_t phys = alloc_physical_page();
-                map_virtual_to_physical((uint32_t)buffer, phys);
+                map_virtual_to_physical((uint32_t)buffer, phys, 0);
                 memcpy(buffer, (void*)((i * 0x400 + y) * 0x1000), 0x1000);
                 p->page_dir->pages[i][y] = phys | 7;
             } else {
@@ -270,7 +270,7 @@ int fork()
             }
         }
     }
-    map_virtual_to_physical((uint32_t)buffer, buffer_phys_back);
+    map_virtual_to_physical((uint32_t)buffer, buffer_phys_back, 0);
     kfree(buffer_chunk);
 
     memcpy(p->threads[0].stack_mem + KERNEL_STACK_SIZE - sizeof(struct regs), current_thread->user_regs, sizeof(struct regs));

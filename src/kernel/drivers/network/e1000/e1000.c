@@ -135,7 +135,7 @@ void e1000_setup_tx(e1000_device_t *dev)
     // alloc_physical_range returns address aligned on page boundary
     uint32_t physical_addr = alloc_physical_range(desc_pages);
     uint32_t virtual_addr = alloc_hardware_space_chunk(desc_pages);
-    map_virtual_to_physical_range(virtual_addr, physical_addr, desc_pages);
+    map_virtual_to_physical_range(virtual_addr, physical_addr, desc_pages, PAGE_NO_CACHE);
 
     dev->tx_base = (void*)virtual_addr;
     memset(dev->tx_base, 0, sizeof(e1000_tx_descriptor_t) * TX_DESCRIPTORS_COUNT);
@@ -143,7 +143,7 @@ void e1000_setup_tx(e1000_device_t *dev)
     uint16_t pages_count = PAGE_ALIGN(DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT) / 0x1000;
     dev->tx_data_buffer = (void*)alloc_hardware_space_chunk(pages_count);
     uint32_t phys_addr = alloc_physical_range(pages_count);
-    map_virtual_to_physical_range((uint32_t)dev->tx_data_buffer, phys_addr, pages_count);
+    map_virtual_to_physical_range((uint32_t)dev->tx_data_buffer, phys_addr, pages_count, PAGE_NO_CACHE);
     memset(dev->tx_data_buffer, 0, DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT);
 
     for (uint16_t i = 0; i < TX_DESCRIPTORS_COUNT; i++)
@@ -196,7 +196,7 @@ void e1000_setup_rx(e1000_device_t *dev)
     // alloc_physical_range returns address aligned on page boundary
     uint32_t physical_addr = alloc_physical_range(desc_pages);
     uint32_t virtual_addr = alloc_hardware_space_chunk(desc_pages);
-    map_virtual_to_physical_range(virtual_addr, physical_addr, desc_pages);
+    map_virtual_to_physical_range(virtual_addr, physical_addr, desc_pages, PAGE_NO_CACHE);
 
     dev->rx_base = (void*)virtual_addr;
     memset(dev->rx_base, 0, sizeof(e1000_rx_descriptor_t) * RX_DESCRIPTORS_COUNT);
@@ -204,7 +204,7 @@ void e1000_setup_rx(e1000_device_t *dev)
     uint16_t pages_count = PAGE_ALIGN(DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT) / 0x1000;
     dev->rx_data_buffer = (void*)alloc_hardware_space_chunk(pages_count);
     uint32_t phys_addr = alloc_physical_range(pages_count);
-    map_virtual_to_physical_range((uint32_t)dev->rx_data_buffer, phys_addr, pages_count);
+    map_virtual_to_physical_range((uint32_t)dev->rx_data_buffer, phys_addr, pages_count, PAGE_NO_CACHE);
     memset(dev->rx_data_buffer, 0, DESCRIPTOR_BUFFER_SIZE * RX_DESCRIPTORS_COUNT);
 
     for (uint16_t i = 0; i < RX_DESCRIPTORS_COUNT; i++)
@@ -287,7 +287,7 @@ void e1000_init(pci_device_t *pci_dev)
 
     for(uint32_t i = 0; i < mmio_region_pages; i++)
     {
-        map_virtual_to_physical(dev->mmio + i * 0x1000, pci_dev->base_address[0] + i * 0x1000);
+        map_virtual_to_physical(dev->mmio + i * 0x1000, pci_dev->base_address[0] + i * 0x1000, PAGE_NO_CACHE);
     }
 
     mmio_write32(dev->mmio, E1000_REG_IMC, 0xffffffff);

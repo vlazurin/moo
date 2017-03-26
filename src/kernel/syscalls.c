@@ -31,7 +31,7 @@ static int syscall_brk(uint32_t addr)
     uint32_t new = PAGE_ALIGN(addr);
     while(current < new)
     {
-        map_virtual_to_physical(current, alloc_physical_page());
+        map_virtual_to_physical(current, alloc_physical_page(), 0);
         current += 0x1000;
     }
 
@@ -140,6 +140,12 @@ static int syscall_readdir()
     return i;
 }
 
+static int syscall_opendir()
+{
+    char *p = (void*)current_thread->user_regs->ebx;
+    return sys_open(p, 0);
+}
+
 static int syscall_getegid()
 {
     return get_gid();
@@ -183,7 +189,7 @@ static void *syscall_table[] = {
     [SYSCALL_GETEGID] = syscall_getegid,
     [SYSCALL_GETEUID] = syscall_geteuid,
     [SYSCALL_GETUID] = syscall_getuid,
-    [SYSCALL_OPENDIR] = sys_open,
+    [SYSCALL_OPENDIR] = syscall_opendir,
     [SYSCALL_READDIR] = syscall_readdir,
     [SYSCALL_CLOSEDIR] = syscall_closedir,
     [0xce] = dup2

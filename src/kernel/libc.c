@@ -3,7 +3,7 @@
 #include "liballoc.h"
 #include <stdint.h>
 
-char *strdup(char *str)
+char *strdup(const char *str)
 {
     uint32_t len = strlen(str) + 1; // +1 because '\0' must be copied too
     char *copy = kmalloc(len);

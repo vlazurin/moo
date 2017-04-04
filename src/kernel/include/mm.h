@@ -18,6 +18,8 @@ void map_virtual_to_physical_range(uint32_t virtual, uint32_t physical, uint8_t 
 uint32_t alloc_hardware_space_chunk(int pages);
 void mark_memory_region(uint32_t address, uint32_t size, uint8_t used);
 void free_page(uint32_t virtual);
+void free_physical_page(uint32_t phys);
+void unmap_page(uint32_t virtual);
 void free_userspace();
 
 #endif

@@ -22,6 +22,7 @@ set(SOURCE_FILES
         log.c
         timer.c
         io.c
+        shm.c
         irq.c
         irq.S
         ./support/list.c

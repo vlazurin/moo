@@ -538,7 +538,7 @@ int lseek(file_descriptor_t fd, int offset, int whence)
     if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
         return -EBADF;
     }
- 
+
     if (whence == 0) {
         current_process->files[fd]->pos = offset;
     } else if (whence == 1) {
@@ -566,4 +566,12 @@ int dup2(file_descriptor_t old, file_descriptor_t new)
     *current_process->files[new] = *current_process->files[old];
 
     return 0;
+}
+
+struct vfs_file *get_file(file_descriptor_t fd)
+{
+    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
+        return NULL;
+    }
+    return current_process->files[fd];
 }

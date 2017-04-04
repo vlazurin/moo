@@ -179,7 +179,7 @@ char *trim(char *str)
     return str;
 }
 
-int strpos(char *str, char c)
+int strpos(const char *str, char c)
 {
     int number = 0;
     while(*str != '\0')

@@ -205,7 +205,8 @@ void map_virtual_to_physical(uint32_t virtual, uint32_t physical, uint8_t flags)
     asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
 
     // MUST IGNORE CALLS FOR KERNEL MEMORY, fix me
-    if ((uint32_t)current_process->brk <= virtual && virtual < 0xE1C00000) {
+    // also must ignore shared memory space
+    if ((uint32_t)current_process->brk <= virtual && virtual < 0xE1C00000 && virtual < USERSPACE_SHARED_MEM) {
         current_process->brk = (void*)virtual + 0x1000;
     }
 }
@@ -230,6 +231,17 @@ uint32_t get_physical_address(uint32_t virtual)
     return 0;
 }
 
+void unmap_page(uint32_t virtual)
+{
+    uint32_t dir = (virtual >> 22);
+    uint32_t page = (virtual >> 12) & 0x03FF;
+    // Should be mutex lock before IF? Probably value in page_table can be changed between IF and calc...
+    if (page_directory->pages[dir] != 0 && (page_directory->pages[dir][page] & 7) == 7) {
+        page_directory->pages[dir][page] = 2;
+        asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
+    }
+}
+
 void free_page(uint32_t virtual)
 {
     uint32_t dir = (virtual >> 22);
@@ -242,6 +254,12 @@ void free_page(uint32_t virtual)
         page_directory->pages[dir][page] = 2;
         asm volatile("invlpg (%0)" ::"r" (virtual) : "memory");
     }
+}
+
+void free_physical_page(uint32_t phys)
+{
+    uint32_t index = phys / 0x1000 / 8;
+    bitmap[index] &= ~(1 << (phys / 0x1000 % 8));
 }
 
 void free_userspace()

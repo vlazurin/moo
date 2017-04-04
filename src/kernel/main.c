@@ -22,6 +22,7 @@
 #include "elf.h"
 #include "tty.h"
 #include "kb.h"
+#include "shm.h"
 #include "tss.h"
 #include "gdt.h"
 
@@ -86,6 +87,7 @@ void main()
     init_fat16fs();
     init_screen();
     init_keyboard();
+    init_shm();
     /*pci_device_t *dev = get_pci_device_by_class(PCI_CLASS_NETWORK_CONTROLLER);
     network_device_t *net_dev = (network_device_t*)dev->logical_driver;
     if (net_dev != 0)
@@ -111,6 +113,7 @@ void main()
             debug("[network] DHCP leasing time isn't supported!\n");
         }
     }*/
+
     setup_syscalls();
     init_io();
     symlink("/bin", "/mount/NO NAME/bin");

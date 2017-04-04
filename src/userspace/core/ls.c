@@ -17,13 +17,12 @@ typedef struct DIR {
 
 int main(int argc, char *argv[])
 {
-    char *path = "./";
-    if (argc > 1) {
-        path = &argv[1];
-    }
-
     struct DIR *dir = NULL;
-    dir = opendir(path);
+    if (argc > 1) {
+        dir = opendir(argv[1]);
+    } else {
+        dir = opendir("./");
+    }
     if (dir == NULL) {
         printf("ls opendir error: %d\n", errno);
         return 1;

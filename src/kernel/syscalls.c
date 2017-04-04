@@ -22,7 +22,7 @@ typedef int (*syscall_handler)(int a, int b, int c);
 static int syscall_brk(uint32_t addr)
 {
     log(KERN_DEBUG, "PID %i requested brk %x\n", get_pid(), addr);
-    if (addr == 0 || (uint32_t)current_process->brk > addr)
+    if (addr == 0 || (uint32_t)current_process->brk > addr || addr >= USERSPACE_SHARED_MEM)
     {
         return (uint32_t)current_process->brk;
     }

@@ -5,8 +5,8 @@ typedef struct list_node list_node_t;
 
 typedef struct list_node
 {
-    list_node_t *next;
-    list_node_t *prev;
+    void *next;
+    void *prev;
 } list_node_t;
 
 void delete_from_list(void **list, void* node);
@@ -20,5 +20,12 @@ if (list != 0) \
     ((list_node_t*)list)->prev = (list_node_t*)node; \
 } \
 list = node;
+
+#define insert_in_list(node, after) \
+((list_node_t*)node)->next = ((list_node_t*)after)->next; \
+((list_node_t*)node)->prev = (list_node_t*)after; \
+((list_node_t*)after)->next = (list_node_t*)node;
+
+#define FOR_EACH(item, where, type) for (type *(item) = (where); (item); (item) = (type*)(item)->list.next)
 
 #endif

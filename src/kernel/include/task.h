@@ -49,6 +49,8 @@ struct process
     page_directory_t *page_dir;
     void *page_dir_base;
     void *brk;
+    uint32_t shared_heap;
+    struct shm_map *shm_mapping;
     char cur_dir[MAX_PATH_LENGTH];
     int volatile ref_count;
     mutex_t mutex;
@@ -73,5 +75,4 @@ void stop_process();
 int set_proc_group(int pid, int group_id);
 int wait_pid(int pid, int *status, int options);
 int execve(char *path, char **argv, char **envp);
-vfs_file_t *get_file(file_descriptor_t fd);
 #endif

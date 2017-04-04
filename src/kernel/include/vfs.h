@@ -184,4 +184,5 @@ int chdir(char *path);
 int symlink(char *path, char *target_path);
 int lseek(file_descriptor_t fd, int offset, int whence);
 int dup2(file_descriptor_t old, file_descriptor_t new);
+struct vfs_file *get_file(file_descriptor_t fd);
 #endif

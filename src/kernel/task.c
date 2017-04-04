@@ -424,14 +424,6 @@ void force_task_switch()
     switch_task();
 }
 
-vfs_file_t *get_file(file_descriptor_t fd)
-{
-    if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
-        return NULL;
-    }
-    return current_process->files[fd];
-}
-
 void switch_task()
 {
     if (task_switch_required == false || current_process == NULL) {

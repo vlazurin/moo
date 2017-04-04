@@ -29,8 +29,9 @@
 void setup_syscalls();
 extern kernel_load_info_t *kernel_params;
 // set by linker
-uint32_t *bss_start;
-uint32_t *bss_end;
+// variable size must be 1 byte, or (&bss_end - &bss_start) will give wrong result
+extern char bss_start;
+extern char bss_end;
 
 void init_serial();
 void init_urandom();
@@ -44,12 +45,13 @@ void main()
     init_early_log();
 
     uint32_t bss_size = &bss_end - &bss_start;
+    memset(&bss_start, 0, bss_size);
+
     if (bss_size > KERNEL_BSS_SIZE) {
         log(KERN_FATAL, "kernel BSS (%x) doesn't fit allocated space (%x)", bss_size, KERNEL_BSS_SIZE);
         hlt();
     }
 
-    memset(&bss_start, 0, bss_size);
     asm("finit"); // because bochs is very annoying about "MSDOS compatibility FPU exception"
     init_irq();
     init_memory_manager(kernel_params);

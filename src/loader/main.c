@@ -37,8 +37,9 @@ struct gdt_entry gdt_entries[GDT_SIZE];
 struct gdt_register gdt_reg;
 
 // linker will set values(see os_loader.ld)
-uint32_t *bss_start;
-uint32_t *bss_end;
+// variable size must be 1 byte, or (&bss_end - &bss_start) will give wrong result
+extern char bss_start;
+extern char bss_end;
 
 void fill_paging_info(uint32_t virtual, uint32_t physical, uint32_t pages_count)
 {

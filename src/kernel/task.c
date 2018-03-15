@@ -498,6 +498,39 @@ void switch_task()
     ref_inc(&current_process->ref_count);
     ref_inc(&current_thread->ref_count);
     set_kernel_stack((uint32_t)th->stack_mem + KERNEL_STACK_SIZE);
-
+    if (current_thread->regs.eip == 0xc0100800) {
+        hlt();
+    }
     perform_task_switch(current_thread->regs.eip, current_thread->regs.ebp, current_thread->regs.esp);
+}
+
+struct event_data *get_event()
+{
+    struct event_data *packet = NULL;
+
+    mutex_lock(&global_mutex);
+    if (current_process->events != NULL) {
+        packet = current_process->events;
+        delete_from_list((void*)&current_process->events, packet);
+    }
+    mutex_release(&global_mutex);
+
+    return packet;
+}
+
+int send_event(struct event_data *packet)
+{
+    mutex_lock(&global_mutex);
+
+    FOR_EACH(p, process_list, struct process) {
+        if (p->id == packet->target) {
+            packet->sender = get_pid();
+            push_in_list((void*)&p->events, packet);
+            mutex_release(&global_mutex);
+            return 0;
+        }
+    }
+
+    mutex_release(&global_mutex);
+    return -ENOENT;
 }

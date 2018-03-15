@@ -1,8 +1,11 @@
 #include "ata.h"
+#include "mm.h"
+#include "pit.h"
 #include "system.h"
 #include "vfs.h"
 #include "port.h"
 #include "liballoc.h"
+#include "timer.h"
 #include "string.h"
 #include "log.h"
 
@@ -32,6 +35,14 @@ static uint8_t get_ata_status(struct ide_channel *channel)
     return status;
 }
 
+struct prd {
+    uintptr_t offset;
+    uint16_t bytes;
+    uint16_t reserved: 15;
+    uint16_t eot: 1;
+};
+ uint32_t port = 0;
+ struct prd *p = 0;
 // slow and simple lba28 / PIO reading
 static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint8_t sectors)
 {
@@ -39,8 +50,26 @@ static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint
         log(KERN_INFO, "ata read failed (LBA address is too big)");
         return -1;
     }
-
+    if (p == 0) {
+        p = kmalloc(sizeof(struct prd) + 4);
+        p = (void*)ALIGN((uintptr_t)p, 4);
+    }
+    p->bytes = 512 * sectors;
+    p->eot = 1;
+    p->offset = get_physical_address((uint32_t)buf);
+    //asm("cli");
     mutex_lock(&dev->channel->mutex);
+    /*outb(port, inb(port) & ~1); // Clear start/stop bit
+    outl(port  + 4, (uintptr_t) p);
+    outb(port, inb(port) | 8); // Set read bit
+    outb(port  + 2, inb(port + 2) & ~(0x04 | 0x02)); // Clear interrupt and error flags according to
+    */
+
+    outb(port, 0);
+    outl(port  + 4, get_physical_address((uintptr_t) p));
+    outb(port + 0x2, inb(port + 0x02) | 0x04 | 0x02);
+    outb(port, 8); // Set read bit
+
     outb(dev->channel->base + ATA_REG_FEATURES, 0x00);
     outb(dev->channel->base + ATA_REG_SECCOUNT0, sectors);
     outb(dev->channel->base + ATA_REG_LBA0, (lba & 0x00000FF) >> 0);
@@ -48,16 +77,28 @@ static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint
     outb(dev->channel->base + ATA_REG_LBA2, (lba & 0x0FF0000) >> 16);
 
     outb(dev->channel->base + ATA_REG_HDDEVSEL, 0xE0 | (dev->slave << 4) | ((lba & 0xF000000) >> 24));
-    outb(dev->channel->base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
-
-    uint16_t *buf_w = buf;
+    ide_delay(dev->channel);
+    outb(dev->channel->base + ATA_REG_COMMAND, ATA_CMD_READ_DMA);
+    outb(port, 0x08 | 0x01);
+    /*uint16_t *buf_w = buf;
     while(sectors > 0) {
         while (!(get_ata_status(dev->channel) & ATA_SR_DRQ));
         for (uint16_t i = 0; i < SECTOR_SIZE / 2; i++) {
             *buf_w++ = inw(dev->channel->base);
         }
         sectors--;
-    }
+    }*/
+    //asm("sti");
+    while (1) {
+		int status = inb(port + 0x02);
+		int dstatus = inb(dev->channel->base + ATA_REG_STATUS);
+		if (!(status & 0x04)) {
+			continue;
+		}
+		if (!(dstatus & ATA_SR_BSY)) {
+			break;
+		}
+	}
     mutex_release(&dev->channel->mutex);
     return 0;
 }
@@ -78,13 +119,16 @@ static int write_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uin
     outb(dev->channel->base + ATA_REG_LBA2, (lba & 0x0FF0000) >> 16);
 
     outb(dev->channel->base + ATA_REG_HDDEVSEL, 0xE0 | (dev->slave << 4) | ((lba & 0xF000000) >> 24));
+    ide_delay(dev->channel);
     outb(dev->channel->base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
     ide_delay(dev->channel);
 
     uint16_t *buf_w = buf;
     for (uint16_t i = 0; i < 256 * sectors; i++) {
+        while((get_ata_status(dev->channel) & ATA_SR_DRQ) == 0){};
         outw(dev->channel->base, *buf_w++);
     }
+    ide_delay(dev->channel);
     outb(dev->channel->base + ATA_REG_COMMAND, ATA_CMD_CACHE_FLUSH);
     ide_delay(dev->channel);
     mutex_release(&dev->channel->mutex);
@@ -171,7 +215,8 @@ void init_ata(pci_device_t *pci_device)
     ide->channels[0].ctrl = (pci_device->base_address[1] & 0xFFFFFFFC) + 0x3F6 * (!pci_device->base_address[1]);
     ide->channels[1].base = (pci_device->base_address[2] & 0xFFFFFFFC) + 0x170 * (!pci_device->base_address[2]);
     ide->channels[1].ctrl = (pci_device->base_address[3] & 0xFFFFFFFC) + 0x376 * (!pci_device->base_address[3]);
-
+    struct pci_device *pd = get_pci_device_by_class(0x1, NULL);
+    port = pd->base_address[4];
     // disable interrupts
     outb(ide->channels[0].ctrl + ATA_REG_CONTROL, 2);
     outb(ide->channels[1].ctrl + ATA_REG_CONTROL, 2);

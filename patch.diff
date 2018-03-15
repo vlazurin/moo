@@ -1,0 +1,105 @@
+diff --git a/src/kernel/drivers/block/ata.c b/src/kernel/drivers/block/ata.c
+index 23bbb59..eeb82f0 100644
+--- a/src/kernel/drivers/block/ata.c
++++ b/src/kernel/drivers/block/ata.c
+@@ -4,6 +4,7 @@
+ #include "port.h"
+ #include "liballoc.h"
+ #include "string.h"
++#include "mm.h"
+ #include "log.h"
+ 
+ static void ide_delay(struct ide_channel *channel)
+@@ -32,7 +33,6 @@ static uint8_t get_ata_status(struct ide_channel *channel)
+     return status;
+ }
+ 
+-// slow and simple lba28 / PIO reading
+ static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint8_t sectors)
+ {
+     if (lba + sectors >= dev->identify.sectors_28) {
+@@ -41,6 +41,8 @@ static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint
+     }
+ 
+     mutex_lock(&dev->channel->mutex);
++    outl(dev->channel->base + 4, (uint32_t)get_physical_address((uintptr_t)dev->channel->prdt));
++
+     outb(dev->channel->base + ATA_REG_FEATURES, 0x00);
+     outb(dev->channel->base + ATA_REG_SECCOUNT0, sectors);
+     outb(dev->channel->base + ATA_REG_LBA0, (lba & 0x00000FF) >> 0);
+@@ -48,16 +50,17 @@ static int read_ata_device(struct ata_device *dev, void *buf, uint16_t lba, uint
+     outb(dev->channel->base + ATA_REG_LBA2, (lba & 0x0FF0000) >> 16);
+ 
+     outb(dev->channel->base + ATA_REG_HDDEVSEL, 0xE0 | (dev->slave << 4) | ((lba & 0xF000000) >> 24));
+-    outb(dev->channel->base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
++    outb(dev->channel->base + ATA_REG_COMMAND, ATA_CMD_READ_DMA);
++    outb(dev->channel->base + 4, 0x08 | 0x01);
+ 
+-    uint16_t *buf_w = buf;
++    /*uint16_t *buf_w = buf;
+     while(sectors > 0) {
+         while (!(get_ata_status(dev->channel) & ATA_SR_DRQ));
+         for (uint16_t i = 0; i < SECTOR_SIZE / 2; i++) {
+             *buf_w++ = inw(dev->channel->base);
+         }
+         sectors--;
+-    }
++    }*/
+     mutex_release(&dev->channel->mutex);
+     return 0;
+ }
+@@ -167,10 +170,28 @@ void init_ata(pci_device_t *pci_device)
+ {
+     struct ide_controller *ide = kmalloc(sizeof(struct ide_controller));
+     memset(ide, 0, sizeof(struct ide_controller));
++
+     ide->channels[0].base = (pci_device->base_address[0] & 0xFFFFFFFC) + 0x1F0 * (!pci_device->base_address[0]);
+     ide->channels[0].ctrl = (pci_device->base_address[1] & 0xFFFFFFFC) + 0x3F6 * (!pci_device->base_address[1]);
++    uintptr_t phys = alloc_physical_page();
++    ide->channels[0].dma_addr = alloc_hardware_space_chunk(1);
++    map_virtual_to_physical(ide->channels[0].dma_addr, phys, PAGE_NO_CACHE);
++    ide->channels[0].prdt_base = kmalloc(sizeof(struct prd) + 4);
++    ide->channels[0].prdt = (void*)ALIGN((uintptr_t)ide->channels[0].prdt_base, 4);
++    ide->channels[0].prdt->bytes = 512;
++    ide->channels[0].prdt->offset = get_physical_address(ide->channels[0].dma_addr);
++    ide->channels[0].prdt->eot = 1;
++
+     ide->channels[1].base = (pci_device->base_address[2] & 0xFFFFFFFC) + 0x170 * (!pci_device->base_address[2]);
+     ide->channels[1].ctrl = (pci_device->base_address[3] & 0xFFFFFFFC) + 0x376 * (!pci_device->base_address[3]);
++    phys = alloc_physical_page();
++    ide->channels[1].dma_addr = alloc_hardware_space_chunk(1);
++    map_virtual_to_physical(ide->channels[1].dma_addr, phys, PAGE_NO_CACHE);
++    ide->channels[1].prdt_base = kmalloc(sizeof(struct prd) + 4);
++    ide->channels[1].prdt = (void*)ALIGN((uintptr_t)ide->channels[0].prdt_base, 4);
++    ide->channels[1].prdt->bytes = 512;
++    ide->channels[1].prdt->offset = get_physical_address(ide->channels[0].dma_addr);
++    ide->channels[1].prdt->eot = 1;
+ 
+     // disable interrupts
+     outb(ide->channels[0].ctrl + ATA_REG_CONTROL, 2);
+diff --git a/src/kernel/include/ata.h b/src/kernel/include/ata.h
+index b26a8fa..cc36227 100644
+--- a/src/kernel/include/ata.h
++++ b/src/kernel/include/ata.h
+@@ -89,10 +89,21 @@ struct ata_device {
+    int (*write)(struct ata_device*, void*, uint16_t, uint8_t);
+ };
+ 
++struct prd {
++    uintptr_t offset;
++    uint16_t bytes;
++    uint16_t reserved: 15;
++    uint16_t eot: 1;
++};
++
+ struct ide_channel {
+    uint16_t base;
+    uint16_t ctrl;
+    mutex_t mutex;
++   struct prd *prdt;
++   struct prd *prdt_base;
++   uintptr_t dma_addr;
++
+    struct ata_device *devices[2];
+ };
+ 

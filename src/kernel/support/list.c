@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "list.h"
-#include "log.h"
 
 void delete_from_list(void **list, void* node)
 {
@@ -13,7 +12,7 @@ void delete_from_list(void **list, void* node)
         *list = next;
         if (next != NULL)
         {
-            next->prev = 0;
+            next->prev = NULL;
         }
         return;
     }
@@ -26,6 +25,25 @@ void delete_from_list(void **list, void* node)
     if (next != NULL)
     {
         next->prev = prev;
+    }
+}
+
+void push_in_list(void **list, void* node)
+{
+    if (*list == NULL) {
+        *list = node;
+        return;
+    }
+
+    struct list_node *iterator = *list;
+    while(iterator != NULL) {
+        if (iterator->next == NULL) {
+            iterator->next = node;
+            ((struct list_node*)node)->prev = iterator;
+            ((struct list_node*)node)->next = NULL;
+            break;
+        }
+        iterator = (struct list_node*)iterator->next;
     }
 }
 

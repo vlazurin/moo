@@ -3,7 +3,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 if [ ! -f "$DIR/disk_image" ]
 then
-	dd if=/dev/zero of=$DIR/disk_image bs=512 count=32768
+	dd if=/dev/zero of=$DIR/disk_image bs=512 count=39168
     mkfs.fat -F 16 $DIR/disk_image
 fi
 

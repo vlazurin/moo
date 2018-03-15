@@ -3,6 +3,6 @@
 
 #include "pci.h"
 
-void init_vesa_lfb_video_adapter(pci_device_t *pci_device);
+void init_vesa_lfb_gpu(pci_device_t *pci_device);
 
 #endif

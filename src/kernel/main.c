@@ -26,7 +26,9 @@
 #include "tss.h"
 #include "gdt.h"
 
+void init_events();
 void setup_syscalls();
+void init_mem();
 extern kernel_load_info_t *kernel_params;
 // set by linker
 // variable size must be 1 byte, or (&bss_end - &bss_start) will give wrong result
@@ -37,6 +39,15 @@ void init_serial();
 void init_urandom();
 void init_null();
 void init_io();
+
+struct event_mdm {
+    struct event_data event;
+    int param1;
+    int param2;
+    int param3;
+    int param4;
+    int param5;
+};
 
 uint8_t exec(char *path);
 
@@ -71,6 +82,7 @@ void main()
     init_pit();
     init_multitasking();
     init_timer();
+    init_shm();
 
     init_tempfs();
     uint8_t error = mount_fs("/", "tempfs", NULL);
@@ -89,7 +101,7 @@ void main()
     init_fat16fs();
     init_screen();
     init_keyboard();
-    init_shm();
+    init_mem();
     /*pci_device_t *dev = get_pci_device_by_class(PCI_CLASS_NETWORK_CONTROLLER);
     network_device_t *net_dev = (network_device_t*)dev->logical_driver;
     if (net_dev != 0)
@@ -117,10 +129,26 @@ void main()
     }*/
 
     setup_syscalls();
+    init_events();
     init_io();
     symlink("/bin", "/mount/NO NAME/bin");
     symlink("/home", "/mount/NO NAME/home");
     symlink("/etc", "/mount/NO NAME/etc");
-    exec("/bin/dash");
-    while(true){}
+    //exec("/bin/dash");
+    file_descriptor_t f = sys_open("/home/ggdasd1", O_CREAT);
+    sys_write(f, "aaa", 3);
+    sys_close(f);
+    file_descriptor_t fd = sys_open("/dev/screen", 0);
+    sys_write(fd, "work !!\n", 7);
+
+    f = sys_open("/dev/stat_mem", 0);
+    char buf[20];
+    memset(buf, 0, 20);
+    sys_read(f, buf, 20);
+    debug("%i\n", *(int*)&buf);
+
+    exec("/bin/mdm");
+
+    while(true){
+    }
 }

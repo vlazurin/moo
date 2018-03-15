@@ -1,5 +1,5 @@
 #!/bin/bash
-VM='moo'
+VM='ffg'
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 VBoxManage modifyvm $VM --hda none
 VBoxManage closemedium disk $DIR/sdb.vdi

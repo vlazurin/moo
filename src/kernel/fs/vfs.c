@@ -263,7 +263,7 @@ int sys_read(file_descriptor_t fd, void *buf, uint32_t size)
 {
     //log(KERN_DEBUG, "read call for %i\n", fd);
     if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
-        //log(KERN_DEBUG, "error for %i %x\n", fd, current_process->files[fd]);
+        log(KERN_DEBUG, "error for %i %x\n", fd, current_process->files[fd]);
         return -EBADF;
     }
 
@@ -271,7 +271,7 @@ int sys_read(file_descriptor_t fd, void *buf, uint32_t size)
     if (file->ops == NULL || file->ops->read == NULL) {
         return -EPERM;
     }
-
+    //debug("sys_read before ops call\n");
     int err = file->ops->read(file, buf, size, &file->pos);
     return err;
 }
@@ -296,7 +296,9 @@ int sys_write(file_descriptor_t fd, void *buf, uint32_t size)
     if (fd >= MAX_OPENED_FILES || fd < 0 || current_process->files[fd] == NULL) {
         return -EBADF;
     }
-
+    if (fd < 4) {
+        debug("%s\n", buf);
+    }
     vfs_file_t *file = current_process->files[fd];
     if (file->ops == NULL || file->ops->write == NULL)
     {
@@ -356,6 +358,7 @@ file_descriptor_t sys_open(char *path, int flags)
     }
 
 mutex_cleanup:
+    debug("sys_open result: %d, path: %s\n", err, path);
     mutex_release(&vfs_mutex);
     if (file != NULL && err < 0) kfree(file);
     kfree(canonical);

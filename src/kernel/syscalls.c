@@ -3,6 +3,7 @@
 #include "log.h"
 #include "mm.h"
 #include "timer.h"
+#include "shm.h"
 #include "vfs.h"
 #include "task.h"
 #include "errno.h"
@@ -161,6 +162,27 @@ static int syscall_getuid()
     return 0;
 }
 
+static int syscall_shm_map()
+{
+    return shm_map((char*)current_thread->user_regs->ebx);
+}
+
+static int syscall_shm_alloc()
+{
+    return shm_alloc((char*)current_thread->user_regs->ebx, (uint32_t)current_thread->user_regs->ecx, NULL, 0);
+}
+
+static int syscall_shm_get_addr()
+{
+    uintptr_t addr = shm_get_addr((char*)current_thread->user_regs->ebx);
+    if (addr == 0) {
+        return -EINVAL;
+    }
+    uintptr_t *ptr = (uintptr_t*)current_thread->user_regs->ecx;
+    *ptr = addr;
+    return 0;
+}
+
 static void *syscall_table[] = {
     [SYSCALL_EXIT] = stop_process,
     [SYSCALL_FORK] = fork,
@@ -192,6 +214,9 @@ static void *syscall_table[] = {
     [SYSCALL_OPENDIR] = syscall_opendir,
     [SYSCALL_READDIR] = syscall_readdir,
     [SYSCALL_CLOSEDIR] = syscall_closedir,
+    [SYSCALL_SHM_MAP] = syscall_shm_map,
+    [SYSCALL_SHM_GET_ADDR] = syscall_shm_get_addr,
+    [SYSCALL_SHM_ALLOC] = syscall_shm_alloc,
     [0xce] = dup2
 };
 
@@ -200,14 +225,14 @@ static uint32_t syscall_table_size = sizeof(syscall_table) / sizeof(void*);
 void handle_syscall_routine(struct regs *r)
 {
     if (r->eax > syscall_table_size || syscall_table[r->eax] == NULL) {
-        log(KERN_DEBUG, "unknown syscall (eax: %x, ebx: %x, ecx: %x, edx: %x)\n", r->eax, r->ebx, r->ecx, r->edx);
+        //log(KERN_DEBUG, "unknown syscall (eax: %x, ebx: %x, ecx: %x, edx: %x)\n", r->eax, r->ebx, r->ecx, r->edx);
         r->eax = -EINVAL;
     } else {
-        log(KERN_DEBUG, "(PID: %i) syscall (eax: %i, ebx: %x, ecx: %x, edx: %x)\n", get_pid() ,r->eax, r->ebx, r->ecx, r->edx);
+        //log(KERN_DEBUG, "(PID: %i) syscall (eax: %i, ebx: %x, ecx: %x, edx: %x)\n", get_pid() ,r->eax, r->ebx, r->ecx, r->edx);
         current_thread->user_regs = r;
         syscall_handler handler = syscall_table[r->eax];
         r->eax = handler(r->ebx, r->ecx, r->edx);
-        log(KERN_DEBUG, "%i\n", r->eax);
+        //log(KERN_DEBUG, "%i\n", r->eax);
     }
 }
 

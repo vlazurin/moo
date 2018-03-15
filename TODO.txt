@@ -1,0 +1,1 @@
+- WHY stat command shows BLK devs as chardev?

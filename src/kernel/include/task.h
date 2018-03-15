@@ -8,6 +8,7 @@
 #include "irq.h"
 #include "vfs.h"
 #include "signal.h"
+#include "event.h"
 
 #define THREAD_RUNNING 1
 #define THREAD_STOPED 2
@@ -45,6 +46,7 @@ struct process
     struct thread *threads;
     uint32_t next_thread_id;
     uint32_t state;
+    struct event_data *events;
     vfs_file_t *files[MAX_OPENED_FILES];
     page_directory_t *page_dir;
     void *page_dir_base;
@@ -75,4 +77,6 @@ void stop_process();
 int set_proc_group(int pid, int group_id);
 int wait_pid(int pid, int *status, int options);
 int execve(char *path, char **argv, char **envp);
+struct event_data *get_event();
+int send_event(struct event_data *packet);
 #endif

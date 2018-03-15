@@ -2,6 +2,7 @@
 #define H_SHM
 
 #include "list.h"
+#include <stddef.h>
 
 #define SHM_SEGMENT_NAME_LENGTH 128
 
@@ -24,6 +25,7 @@ struct shm_map
 };
 
 int shm_alloc(const char *name, uint32_t size, uintptr_t *pages, uint8_t persistent);
+int shm_map(const char *name);
 int shm_unmap(const char *name);
 uint32_t shm_get_addr(const char *name);
 void init_shm();

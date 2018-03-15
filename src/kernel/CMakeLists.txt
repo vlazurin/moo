@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.2)
 
 set(CMAKE_ASM_FLAGS "-m32 -march=i686 -ffreestanding -Wall -Werror")
 set(CMAKE_C_FLAGS "-O0 -m32 -march=i686 -ffreestanding -Wall -fno-common -Werror -DRUN_TESTS -DDEBUG")
-set(CMAKE_EXE_LINKER_FLAGS "-T${CMAKE_SOURCE_DIR}/kernel.ld -nostdlib -Wl,-Map=mapfile")
+set(CMAKE_EXE_LINKER_FLAGS "-T${CMAKE_SOURCE_DIR}/kernel.ld -nostdlib -Wl,-Map=mapfile,--build-id=none")
 
 include_directories(../shared/include)
 include_directories(./include)
@@ -31,6 +31,7 @@ set(SOURCE_FILES
         pci.c
         task.S
         elf.c
+        event.c
         libc.c
         process.c
         syscalls.c
@@ -47,6 +48,7 @@ set(SOURCE_FILES
         ./network/dhcp.c
         ./network/tcp.c
         ./drivers/char/urandom.c
+        ./drivers/char/mem.c
         ./drivers/char/kb.c
         ./drivers/char/screen.c
         ./drivers/char/serial.c

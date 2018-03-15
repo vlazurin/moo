@@ -8,6 +8,7 @@
 #include "log.h"
 #include "errno.h"
 #include "tss.h"
+#include "shm.h"
 #include <stdbool.h>
 
 void open_process_std();
@@ -16,9 +17,16 @@ extern void enter_userspace(uintptr_t location, uintptr_t stack);
 
 static void process_bootstrap(char *path)
 {
-    char *params[2];
+/*    char *params[2];
     params[0] = "-dash";
     params[1] = 0;
+    char *envp[2];
+    envp[0] = "PWD=/";
+    envp[1] = 0;*/
+    char *params[3];
+    params[0] = "-mdm";
+    params[1] = "/bin/desk";
+    params[2] = 0;
     char *envp[2];
     envp[0] = "PWD=/";
     envp[1] = 0;
@@ -144,7 +152,6 @@ int execve(char *path, char **argv, char **envp)
             strcpy(current_process->cur_dir, envp[i] + 4);
         }
     }
-
     enter_userspace((uint32_t)entry_point, user_stack);
     assert(false && "execve is broken (unreachable code executed)");
     while(true);

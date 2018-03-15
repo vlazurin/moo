@@ -6,7 +6,7 @@
 #include "log.h"
 #include "mutex.h"
 
-#define EARLY_COM_PORT_ADDR 0x3F8
+#define EARLY_COM_PORT_ADDR 0x504
 #define MAX_STR_LENGTH 1024
 
 #define early_write(message) \

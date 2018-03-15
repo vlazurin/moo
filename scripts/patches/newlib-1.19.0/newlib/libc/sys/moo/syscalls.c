@@ -88,6 +88,10 @@ typedef struct DIR {
 #define SYSCALL_OPENDIR 29
 #define SYSCALL_READDIR 30
 #define SYSCALL_CLOSEDIR 31
+#define SYSCALL_SHM_MAP 32
+#define SYSCALL_SHM_UNMAP 33
+#define SYSCALL_SHM_GET_ADDR 34
+#define SYSCALL_SHM_ALLOC 35
 
 DEFN_SYSCALL0(fork, SYSCALL_FORK);
 DEFN_SYSCALL3(write, SYSCALL_WRITE, int, char *, int);
@@ -127,6 +131,10 @@ DEFN_SYSCALL3(fcntl, SYSCALL_FCNTL, int, int, int);
 DEFN_SYSCALL1(opedir, SYSCALL_OPENDIR, char*);
 DEFN_SYSCALL1(readdir, SYSCALL_READDIR, struct DIR*);
 DEFN_SYSCALL1(closedir, SYSCALL_CLOSEDIR, struct DIR*);
+DEFN_SYSCALL1(shm_map, SYSCALL_SHM_MAP, const char*);
+DEFN_SYSCALL1(shm_unmap, SYSCALL_SHM_UNMAP, const char*);
+DEFN_SYSCALL2(shm_get_addr, SYSCALL_SHM_GET_ADDR, const char*, uintptr_t*);
+DEFN_SYSCALL2(shm_alloc, SYSCALL_SHM_ALLOC, const char*, uint32_t);
 
 __attribute__((noreturn)) void __stack_chk_fail(void)
 {
@@ -400,6 +408,47 @@ int fstat(int file, struct stat *st)
         return -1;
     }
     return i;
+}
+
+int shm_map(const char *name)
+{
+    int i = syscall_shm_map(name);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
+}
+
+int shm_unmap(const char *name)
+{
+    int i = syscall_shm_unmap(name);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
+}
+
+int shm_alloc(const char *name, uint32_t size)
+{
+    int i = syscall_shm_alloc(name, size);
+    if (i < 0) {
+        errno = i;
+        return -1;
+    }
+    return i;
+}
+
+uintptr_t shm_get_addr(const char *name)
+{
+    uintptr_t out;
+    int i = syscall_shm_get_addr(name, &out);
+    if (i < 0) {
+        errno = i;
+        return 0;
+    }
+    return out;
 }
 
 int getpid()

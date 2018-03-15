@@ -46,7 +46,7 @@ typedef struct memory_map_entry {
 
 typedef struct video_settings
 {
-    uint32_t *framebuffer;
+    uint32_t framebuffer;
     uint32_t width;
     uint32_t height;
 } video_settings_t;

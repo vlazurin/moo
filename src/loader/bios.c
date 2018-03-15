@@ -140,7 +140,7 @@ void set_video_mode(video_settings_t *video_settings)
             mode |= (0 << 15); // clear screen
             save_regs();
             // extended asm instructions must be first, they will use general purpose regs
-            asm("movw %0, %%bx" :: "r"(*modes));
+            asm("movw %0, %%bx" :: "r"(mode));
             asm("mov $0x4F02, %ax");
             asm("int $0x10");
             asm("movw %%ax, %0" : "=r"(ax));
@@ -152,7 +152,7 @@ void set_video_mode(video_settings_t *video_settings)
                 hlt();
             }
 
-            video_settings->framebuffer = (uint32_t*)mode_info.framebuffer;
+            video_settings->framebuffer = mode_info.framebuffer;
             video_settings->width = mode_info.width;
             video_settings->height = mode_info.height;
             return;

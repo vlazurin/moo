@@ -172,7 +172,7 @@ void main()
 
     kernel_params.memory_map = memory_map;
     kernel_params.memory_map_length = memory_map_length;
-    //set_video_mode(&kernel_params.video_settings);
+    set_video_mode(&kernel_params.video_settings);
 
     // enable protected mode
     asm("cli");

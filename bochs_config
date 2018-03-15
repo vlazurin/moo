@@ -6,10 +6,11 @@ megs: 256
 com1: enabled=1, mode=file, dev=debug.txt
 magic_break: enabled=1
 port_e9_hack: enabled=1
-cpu: reset_on_triple_fault=0
+cpu: reset_on_triple_fault=0, ips=90000000
 pci: enabled=1, chipset=i440fx, slot1=pcivga#, slot2=e1000
 #e1000: enabled=1, mac=ac:bc:32:ae:83:75, ethmod=fbsd, ethdev=en0
 error: action=report
 usb_xhci: enabled=1
 info: action=report
+clock: sync=realtime, time0=local
 debug: action=ignore, cpu0=ignore

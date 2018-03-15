@@ -25,7 +25,7 @@ driver_map_node_t driver_map[] = {
         .class_id = 0x3,
         .subclass_id = 0x0,
         .interface_id = 0x0,
-        .init = &init_vesa_lfb_video_adapter
+        .init = &init_vesa_lfb_gpu
     },
     {
         .vendor_id = 0x8086,
@@ -93,17 +93,12 @@ void detect_pci_devices()
                 device->subclass = (uint8_t)(config >> 16);
                 device->interface = (uint8_t)(config >> 8);
 
-                //debug("[PCI] device at %i:%i:%i; vendor id: %x, device id: %x, class: %x, sublclass: %x, interface: %x\n",
-                //    bus, slot, function, vendor_id, device_id, device->class, device->subclass, device->interface);
+                debug("[PCI] device at %i:%i:%i; vendor id: %x, device id: %x, class: %x, sublclass: %x, interface: %x\n",
+                    bus, slot, function, vendor_id, device_id, device->class, device->subclass, device->interface);
 
                 for(uint8_t bar = 0; bar < 6; bar++)
                 {
                     config = pci_config_read(bus, slot, function, 0x10 + bar * 4);
-                    if ((config & 1) == 1) // ignore port I/O
-                    {
-                        continue;
-                    }
-
                     pci_config_write(bus, slot, function, 0x10 + bar * 4, 0xffffffff);
                     uint32_t bar_size = pci_config_read(bus, slot, function, 0x10 + bar * 4);
                     bar_size &= 0xFFFFFFF0;
@@ -111,7 +106,12 @@ void detect_pci_devices()
                     bar_size++; // because we need size, not a end address :)
                     pci_config_write(bus, slot, function, 0x10 + bar * 4, config);
 
-                    device->base_address[bar] = config & 0xFFFFFFF0; // bits 4-31
+                    if ((config & 1) == 1) {
+                        device->base_address[bar] = config & 0xFFFFFFFC;
+                        debug("here  %i %x\n",bar, device->base_address[bar]);
+                    } else {
+                        device->base_address[bar] = config & 0xFFFFFFF0; // bits 4-31
+                    }
                     device->base_address_length[bar] = bar_size;
                 }
 
@@ -127,7 +127,7 @@ void init_pci_devices()
 {
     detect_pci_devices();
 
-    mutex_lock(&pci_devices_mutex);
+    //mutex_lock(&pci_devices_mutex);
     pci_device_t *iterator = pci_devices;
     uint32_t count = sizeof(driver_map) / sizeof(driver_map_node_t);
     while(iterator != 0)
@@ -152,7 +152,7 @@ void init_pci_devices()
         }
         iterator = (pci_device_t*)iterator->list.next;
     }
-    mutex_release(&pci_devices_mutex);
+    //mutex_release(&pci_devices_mutex);
 }
 
 pci_device_t* get_pci_device_by_class(uint8_t class, pci_device_t* curr)

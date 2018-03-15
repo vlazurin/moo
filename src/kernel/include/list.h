@@ -1,6 +1,8 @@
 #ifndef H_LIST
 #define H_LIST
 
+#include <stdint.h>
+
 typedef struct list_node list_node_t;
 
 typedef struct list_node
@@ -11,6 +13,7 @@ typedef struct list_node
 
 void delete_from_list(void **list, void* node);
 uint32_t get_list_length(void *list);
+void push_in_list(void **list, void* node);
 
 #define add_to_list(list, node) \
 if (list != 0) \
